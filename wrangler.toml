@@ -1,3 +1,4 @@
+
 name = "cf-ai-chat-worker"
 main = "worker/index.js"
 compatibility_date = "2024-09-01"
