@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 
-const WORKER_URL = import.meta.env.VITE_WORKER_URL || 'https://your-worker.your-subdomain.workers.dev'
+const WORKER_URL = import.meta.env.VITE_WORKER_URL || 'https://chat.sawyerbobk563.workers.dev'
 
 const styles = {
   root: {
