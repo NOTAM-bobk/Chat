@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 
-const WORKER_URL = import.meta.env.VITE_WORKER_URL || 'https://your-worker.your-subdomain.workers.dev'
+const WORKER_URL = import.meta.env.VITE_WORKER_URL || 'https://chat.sawyerbobk563.workers.dev'
 
 const MODELS = [
   { id: '@cf/meta/llama-3.1-8b-instruct', label: 'Llama 3.1 8B', tag: 'Fast' },
