@@ -1,1 +1,17 @@
+name = "cf-ai-chat-worker"
+main = "worker/index.js"
+compatibility_date = "2024-09-01"
+compatibility_flags = ["nodejs_compat"]
 
+# KV namespace — create with: wrangler kv namespace create CHAT_KV
+# Then paste the id below
+[[kv_namespaces]]
+binding = "CHAT_KV-2"
+id = "b2c2c2fc017341079bab42be543b25ca"
+
+# Cloudflare AI binding
+[ai]
+binding = "AI"
+
+# Set your JWT secret via:
+# wrangler secret put JWT_SECRET
