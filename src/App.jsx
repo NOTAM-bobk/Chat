@@ -81,6 +81,16 @@ const Icon = {
       <rect x="8.5" y="8.5" width="5.5" height="5.5" rx="1"/>
     </svg>
   ),
+  DotsThree: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+      <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
+    </svg>
+  ),
+  Pencil: () => (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+    </svg>
+  ),
 }
 
 // ── Flat message row (no bubble) ──────────────────────────────────────────────
@@ -91,49 +101,63 @@ function Message({ msg }) {
     <div className="msg-enter" style={{
       display: 'flex',
       flexDirection: 'column',
+      alignItems: isUser ? 'flex-end' : 'flex-start',
       gap: '4px',
-      padding: '14px 0',
-      borderBottom: '1px solid rgba(255,255,255,0.04)',
+      padding: '10px 0',
     }}>
       <div style={{
         display: 'flex',
         alignItems: 'center',
-        gap: '8px',
-        marginBottom: '6px',
+        gap: '6px',
+        marginBottom: '4px',
+        flexDirection: isUser ? 'row-reverse' : 'row',
       }}>
         <span style={{
           fontFamily: 'Roboto Mono, monospace',
-          fontSize: '10px',
+          fontSize: '9px',
           fontWeight: '600',
           letterSpacing: '0.15em',
           textTransform: 'uppercase',
-          color: isUser ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.3)',
+          color: isUser ? 'rgba(120,180,255,0.6)' : 'rgba(255,255,255,0.3)',
         }}>
           {isUser ? 'You' : 'AI'}
         </span>
-        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)', fontFamily: 'Roboto Mono, monospace' }}>
+        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.18)', fontFamily: 'Roboto Mono, monospace' }}>
           {formatTime(msg.createdAt)}
         </span>
       </div>
-      <p style={{
-        fontSize: '14px',
-        lineHeight: '1.75',
-        color: isUser ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.9)',
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
-        margin: 0,
-        fontWeight: isUser ? '300' : '400',
+      <div style={{
+        maxWidth: '78%',
+        padding: '10px 14px',
+        borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+        background: isUser
+          ? 'linear-gradient(135deg, rgba(59,130,246,0.25) 0%, rgba(99,102,241,0.2) 100%)'
+          : 'rgba(255,255,255,0.05)',
+        border: isUser
+          ? '1px solid rgba(99,130,255,0.25)'
+          : '1px solid rgba(255,255,255,0.07)',
+        backdropFilter: 'blur(10px)',
       }}>
-        {msg.content}
-        {msg.streaming && (
-          <span style={{
-            display: 'inline-block', width: '2px', height: '14px',
-            background: 'rgba(255,255,255,0.5)', borderRadius: '1px',
-            marginLeft: '3px', verticalAlign: 'middle',
-            animation: 'blink 0.9s step-end infinite',
-          }} />
-        )}
-      </p>
+        <p style={{
+          fontSize: '14px',
+          lineHeight: '1.75',
+          color: isUser ? 'rgba(220,235,255,0.9)' : 'rgba(255,255,255,0.88)',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          margin: 0,
+          fontWeight: '400',
+        }}>
+          {msg.content}
+          {msg.streaming && (
+            <span style={{
+              display: 'inline-block', width: '2px', height: '14px',
+              background: 'rgba(255,255,255,0.5)', borderRadius: '1px',
+              marginLeft: '3px', verticalAlign: 'middle',
+              animation: 'blink 0.9s step-end infinite',
+            }} />
+          )}
+        </p>
+      </div>
     </div>
   )
 }
@@ -243,6 +267,9 @@ export default function App({ user, onLogout }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [navShrunk, setNavShrunk] = useState(false)
   const [loadingHistory, setLoadingHistory] = useState(true)
+  const [chatMenuOpen, setChatMenuOpen] = useState(null) // chat id with open 3-dot menu
+  const [renamingChatId, setRenamingChatId] = useState(null)
+  const [renameValue, setRenameValue] = useState('')
 
   const abortRef = useRef(null)
   const bottomRef = useRef(null)
@@ -356,11 +383,17 @@ export default function App({ user, onLogout }) {
     persistChats(updated)
   }
 
-  const deleteChat = (id, e) => {
-    e.stopPropagation()
+  const deleteChat = (id) => {
     const updated = chats.filter(c => c.id !== id)
     setChats(updated)
     if (activeChatId === id) setActiveChatId(updated[0]?.id || null)
+    persistChats(updated)
+  }
+
+  const renameChat = (id, newTitle) => {
+    if (!newTitle.trim()) return
+    const updated = chats.map(c => c.id === id ? { ...c, title: newTitle.trim() } : c)
+    setChats(updated)
     persistChats(updated)
   }
 
@@ -512,12 +545,26 @@ export default function App({ user, onLogout }) {
         .app-root {
           height: 100%;
           background-color: #050505;
-          background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h40v40H0V0zm1 1h38v38H1V1z' fill='%23ffffff' fill-opacity='0.025' fill-rule='evenodd'/%3E%3C/svg%3E");
+          background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h40v40H0V0zm1 1h38v38H1V1z' fill='%23ffffff' fill-opacity='0.028' fill-rule='evenodd'/%3E%3C/svg%3E");
           display: flex;
           flex-direction: column;
           overflow: hidden;
           position: relative;
           font-family: 'Inter', -apple-system, sans-serif;
+        }
+
+        /* Grid fade mask — darker at top, brighter toward bottom input area */
+        .grid-fade {
+          position: fixed;
+          inset: 0;
+          background: linear-gradient(
+            to bottom,
+            rgba(5,5,5,0.72) 0%,
+            rgba(5,5,5,0.3) 55%,
+            rgba(5,5,5,0.0) 100%
+          );
+          pointer-events: none;
+          z-index: 0;
         }
 
         /* Top ambient glow */
@@ -550,18 +597,18 @@ export default function App({ user, onLogout }) {
           z-index: 0;
         }
 
-        /* Input glow — sits at bottom */
+        /* Input glow — blue gradient at bottom */
         .ambient-input {
           position: fixed;
-          bottom: -60px;
+          bottom: -80px;
           left: 50%;
           transform: translateX(-50%);
-          width: 80vw;
-          max-width: 700px;
-          height: 200px;
+          width: 90vw;
+          max-width: 800px;
+          height: 260px;
           border-radius: 100%;
-          background: rgba(255,255,255,0.06);
-          filter: blur(60px);
+          background: radial-gradient(ellipse at center, rgba(59,130,246,0.18) 0%, rgba(99,102,241,0.12) 40%, transparent 75%);
+          filter: blur(40px);
           pointer-events: none;
           z-index: 0;
         }
@@ -635,7 +682,50 @@ export default function App({ user, onLogout }) {
         .sidebar-panel.open {
           transform: translateX(0);
         }
-        .chat-item:hover .del-btn { opacity: 1 !important; }
+        .chat-item:hover .dots-btn { opacity: 1 !important; }
+        .chat-menu {
+          position: absolute;
+          right: 0;
+          top: 100%;
+          margin-top: 4px;
+          background: #111;
+          border: 1px solid rgba(255,255,255,0.12);
+          border-radius: 10px;
+          padding: 4px;
+          z-index: 200;
+          min-width: 130px;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+        }
+        .chat-menu-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 10px;
+          border-radius: 7px;
+          cursor: pointer;
+          font-size: 12px;
+          color: rgba(255,255,255,0.7);
+          font-family: inherit;
+          background: none;
+          border: none;
+          width: 100%;
+          text-align: left;
+          transition: background 0.15s;
+        }
+        .chat-menu-item:hover { background: rgba(255,255,255,0.07); }
+        .chat-menu-item.danger { color: rgba(255,90,90,0.85); }
+        .chat-menu-item.danger:hover { background: rgba(255,60,60,0.1); }
+        .rename-input {
+          width: 100%;
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(99,130,255,0.35);
+          border-radius: 7px;
+          color: rgba(255,255,255,0.85);
+          font-size: 12px;
+          font-family: inherit;
+          padding: 5px 8px;
+          outline: none;
+        }
 
         /* Scrollbar */
         .msg-scroll::-webkit-scrollbar { width: 3px; }
@@ -644,6 +734,7 @@ export default function App({ user, onLogout }) {
       `}</style>
 
       {/* Background glows */}
+      <div className="grid-fade" />
       <div className="ambient-top" />
       <div className="ambient-top-core" />
       <div className="ambient-input" />
@@ -674,19 +765,39 @@ export default function App({ user, onLogout }) {
             }}
             className={navShrunk ? 'shrunk' : ''}
           >
-            {/* CHAT button */}
-            <button
-              className={`nav-btn${navShrunk ? ' shrunk' : ''}`}
-              onClick={() => setSidebarOpen(true)}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: '8px 14px', borderRadius: '10px',
-                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.05)',
-                cursor: 'pointer', color: 'rgba(245,245,245,0.9)',
-              }}
-            >
-              <span style={{ fontFamily: 'Roboto Mono, monospace', fontSize: '10px', fontWeight: '600', letterSpacing: '0.2em' }}>CHAT</span>
-            </button>
+            {/* Left side: Hamburger + CHAT button */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {/* Hamburger — opens sidebar */}
+              <button
+                onClick={() => setSidebarOpen(true)}
+                style={{
+                  width: '36px', height: '36px', borderRadius: '10px', flexShrink: 0,
+                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.05)',
+                  cursor: 'pointer', color: 'rgba(200,200,200,0.75)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'background 0.2s',
+                }}
+                title="Open menu"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+              </button>
+
+              {/* CHAT button — focuses the chat interface */}
+              <button
+                className={`nav-btn${navShrunk ? ' shrunk' : ''}`}
+                onClick={() => { setActiveChatId(activeChatId || chats[0]?.id || null); setSidebarOpen(false) }}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '8px 14px', borderRadius: '10px',
+                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.05)',
+                  cursor: 'pointer', color: 'rgba(245,245,245,0.9)',
+                }}
+              >
+                <span style={{ fontFamily: 'Roboto Mono, monospace', fontSize: '10px', fontWeight: '600', letterSpacing: '0.2em' }}>CHAT</span>
+              </button>
+            </div>
 
             {/* Right side */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -724,7 +835,7 @@ export default function App({ user, onLogout }) {
         </div>
 
         {/* ── Sidebar overlay ── */}
-        <div className={`sidebar-overlay${sidebarOpen ? ' open' : ''}`} onClick={() => setSidebarOpen(false)} />
+        <div className={`sidebar-overlay${sidebarOpen ? ' open' : ''}`} onClick={() => { setSidebarOpen(false); setChatMenuOpen(null) }} />
 
         {/* ── Sidebar panel ── */}
         <div className={`sidebar-panel${sidebarOpen ? ' open' : ''}`}>
@@ -760,8 +871,8 @@ export default function App({ user, onLogout }) {
                     <div
                       key={chat.id}
                       className="chat-item"
-                      onClick={() => { setActiveChatId(chat.id); setSidebarOpen(false) }}
                       style={{
+                        position: 'relative',
                         display: 'flex', alignItems: 'center', gap: '8px',
                         padding: '9px 10px', borderRadius: '10px', cursor: 'pointer',
                         background: chat.id === activeChatId ? 'rgba(255,255,255,0.07)' : 'transparent',
@@ -769,19 +880,57 @@ export default function App({ user, onLogout }) {
                         borderColor: chat.id === activeChatId ? 'rgba(255,255,255,0.1)' : 'transparent',
                       }}
                     >
-                      <span style={{ color: 'rgba(255,255,255,0.25)', flexShrink: 0 }}><Icon.Chat /></span>
-                      <span style={{
-                        fontSize: '13px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                        color: chat.id === activeChatId ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.45)',
-                        fontWeight: '300',
-                      }}>{chat.title || 'Untitled'}</span>
-                      <button
-                        className="del-btn"
-                        onClick={(e) => deleteChat(chat.id, e)}
-                        style={{ opacity: 0, background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.25)', padding: '2px', display: 'flex', flexShrink: 0, transition: 'opacity 0.15s' }}
-                      >
-                        <Icon.Trash />
-                      </button>
+                      {renamingChatId === chat.id ? (
+                        <input
+                          className="rename-input"
+                          autoFocus
+                          value={renameValue}
+                          onChange={e => setRenameValue(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') { renameChat(chat.id, renameValue); setRenamingChatId(null) }
+                            if (e.key === 'Escape') setRenamingChatId(null)
+                          }}
+                          onBlur={() => { renameChat(chat.id, renameValue); setRenamingChatId(null) }}
+                          onClick={e => e.stopPropagation()}
+                        />
+                      ) : (
+                        <>
+                          <span style={{ color: 'rgba(255,255,255,0.25)', flexShrink: 0 }} onClick={() => { setActiveChatId(chat.id); setSidebarOpen(false) }}><Icon.Chat /></span>
+                          <span
+                            onClick={() => { setActiveChatId(chat.id); setSidebarOpen(false) }}
+                            style={{
+                              fontSize: '13px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                              color: chat.id === activeChatId ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.45)',
+                              fontWeight: '300',
+                            }}>{chat.title || 'Untitled'}</span>
+                          {/* 3-dot menu button */}
+                          <button
+                            className="dots-btn"
+                            onClick={e => { e.stopPropagation(); setChatMenuOpen(chatMenuOpen === chat.id ? null : chat.id) }}
+                            style={{ opacity: 0, background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.35)', padding: '3px', display: 'flex', flexShrink: 0, borderRadius: '5px', transition: 'opacity 0.15s, background 0.15s' }}
+                          >
+                            <Icon.DotsThree />
+                          </button>
+                          {/* Dropdown menu */}
+                          {chatMenuOpen === chat.id && (
+                            <div className="chat-menu" onClick={e => e.stopPropagation()}>
+                              <button className="chat-menu-item" onClick={() => {
+                                setRenamingChatId(chat.id)
+                                setRenameValue(chat.title || '')
+                                setChatMenuOpen(null)
+                              }}>
+                                <Icon.Pencil /> Rename
+                              </button>
+                              <button className="chat-menu-item danger" onClick={() => {
+                                deleteChat(chat.id)
+                                setChatMenuOpen(null)
+                              }}>
+                                <Icon.Trash /> Delete
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
                   ))
               }
@@ -860,6 +1009,12 @@ export default function App({ user, onLogout }) {
 
           {/* Input area */}
           <div style={{ padding: '12px 24px 24px', flexShrink: 0, position: 'relative', zIndex: 2 }}>
+            {/* Blue gradient accent strip */}
+            <div style={{
+              position: 'absolute', bottom: 0, left: 0, right: 0, height: '3px',
+              background: 'linear-gradient(90deg, transparent 0%, rgba(59,130,246,0.6) 30%, rgba(99,102,241,0.8) 60%, rgba(139,92,246,0.5) 85%, transparent 100%)',
+              borderRadius: '0 0 0 0',
+            }} />
             <div style={{ maxWidth: '720px', margin: '0 auto' }}>
               <div
                 style={{
@@ -899,12 +1054,15 @@ export default function App({ user, onLogout }) {
                     width: '36px', height: '36px', borderRadius: '10px', flexShrink: 0,
                     background: streaming
                       ? 'rgba(255,255,255,0.08)'
-                      : input.trim() ? 'white' : 'rgba(255,255,255,0.06)',
+                      : input.trim()
+                        ? 'linear-gradient(135deg, #3b82f6 0%, #6366f1 100%)'
+                        : 'rgba(255,255,255,0.06)',
                     border: streaming ? '1px solid rgba(255,255,255,0.15)' : 'none',
-                    color: streaming ? 'white' : input.trim() ? '#050505' : 'rgba(255,255,255,0.2)',
+                    color: streaming ? 'white' : input.trim() ? 'white' : 'rgba(255,255,255,0.2)',
                     cursor: (streaming || input.trim()) ? 'pointer' : 'default',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     transition: 'all 0.2s',
+                    boxShadow: input.trim() && !streaming ? '0 0 16px rgba(99,102,241,0.4)' : 'none',
                   }}
                 >
                   {streaming ? <Icon.Stop /> : <Icon.Send />}
