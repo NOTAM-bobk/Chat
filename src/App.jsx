@@ -17,8 +17,6 @@ const DEFAULT_SETTINGS = {
   maxTokens: 1024,
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
 function genId() {
   return Math.random().toString(36).slice(2, 10)
 }
@@ -27,41 +25,41 @@ function formatTime(iso) {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
-// ── Icons (inline SVG) ────────────────────────────────────────────────────────
+// ── Icons ─────────────────────────────────────────────────────────────────────
 
 const Icon = {
   Plus: () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
     </svg>
   ),
   Send: () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
     </svg>
   ),
   Trash: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
     </svg>
   ),
   Settings: () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
     </svg>
   ),
   Logout: () => (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
     </svg>
   ),
   ChevronDown: () => (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
       <polyline points="6 9 12 15 18 9"/>
     </svg>
   ),
   Chat: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
     </svg>
   ),
@@ -71,55 +69,85 @@ const Icon = {
     </svg>
   ),
   Stop: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
       <rect x="4" y="4" width="16" height="16" rx="2"/>
+    </svg>
+  ),
+  Grid: () => (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+      <rect x="0" y="0" width="5.5" height="5.5" rx="1"/>
+      <rect x="8.5" y="0" width="5.5" height="5.5" rx="1"/>
+      <rect x="0" y="8.5" width="5.5" height="5.5" rx="1"/>
+      <rect x="8.5" y="8.5" width="5.5" height="5.5" rx="1"/>
     </svg>
   ),
 }
 
-// ── Message bubble ────────────────────────────────────────────────────────────
+// ── Flat message row (no bubble) ──────────────────────────────────────────────
 
 function Message({ msg }) {
   const isUser = msg.role === 'user'
   return (
-    <div style={{
+    <div className="msg-enter" style={{
       display: 'flex',
-      justifyContent: isUser ? 'flex-end' : 'flex-start',
-      padding: '2px 0',
+      flexDirection: 'column',
+      gap: '4px',
+      padding: '14px 0',
+      borderBottom: '1px solid rgba(255,255,255,0.04)',
     }}>
       <div style={{
-        maxWidth: '78%',
         display: 'flex',
-        flexDirection: 'column',
-        gap: '4px',
-        alignItems: isUser ? 'flex-end' : 'flex-start',
+        alignItems: 'center',
+        gap: '8px',
+        marginBottom: '6px',
       }}>
-        <div style={{
-          padding: isUser ? '10px 14px' : '12px 16px',
-          borderRadius: isUser ? '18px 18px 4px 18px' : '4px 18px 18px 18px',
-          background: isUser ? 'var(--text)' : 'var(--bg-3)',
-          color: isUser ? 'var(--bg)' : 'var(--text)',
-          fontSize: '14px',
-          lineHeight: '1.6',
-          border: isUser ? 'none' : '1px solid var(--border)',
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-          fontFamily: 'inherit',
+        <span style={{
+          fontFamily: 'Roboto Mono, monospace',
+          fontSize: '10px',
+          fontWeight: '600',
+          letterSpacing: '0.15em',
+          textTransform: 'uppercase',
+          color: isUser ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.3)',
         }}>
-          {msg.content}
-          {msg.streaming && (
-            <span style={{ display: 'inline-block', width: '6px', height: '14px', background: 'var(--text-2)', borderRadius: '1px', marginLeft: '3px', verticalAlign: 'middle', animation: 'blink 0.9s step-end infinite' }} />
-          )}
-        </div>
-        <span style={{ fontSize: '11px', color: 'var(--text-3)', padding: '0 4px' }}>
+          {isUser ? 'You' : 'AI'}
+        </span>
+        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.2)', fontFamily: 'Roboto Mono, monospace' }}>
           {formatTime(msg.createdAt)}
         </span>
       </div>
+      <p style={{
+        fontSize: '14px',
+        lineHeight: '1.75',
+        color: isUser ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.9)',
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+        margin: 0,
+        fontWeight: isUser ? '300' : '400',
+      }}>
+        {msg.content}
+        {msg.streaming && (
+          <span style={{
+            display: 'inline-block', width: '2px', height: '14px',
+            background: 'rgba(255,255,255,0.5)', borderRadius: '1px',
+            marginLeft: '3px', verticalAlign: 'middle',
+            animation: 'blink 0.9s step-end infinite',
+          }} />
+        )}
+      </p>
     </div>
   )
 }
 
 // ── Settings panel ────────────────────────────────────────────────────────────
+
+const inputStyle = {
+  width: '100%', padding: '9px 12px',
+  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+  borderRadius: '10px', color: 'rgba(255,255,255,0.85)',
+  fontSize: '13px', fontFamily: 'inherit', outline: 'none',
+}
+
+const selectStyle = { ...inputStyle, cursor: 'pointer', appearance: 'none' }
 
 function SettingsPanel({ settings, onSave, onClose, username }) {
   const [local, setLocal] = useState(settings)
@@ -133,107 +161,72 @@ function SettingsPanel({ settings, onSave, onClose, username }) {
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100,
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+      backdropFilter: 'blur(12px)', zIndex: 200,
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px',
-    }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
+    }} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div style={{
-        background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-        width: '100%', maxWidth: '480px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px',
+        background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: '20px', width: '100%', maxWidth: '460px',
+        padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px',
+        boxShadow: '0 25px 50px rgba(0,0,0,0.6)',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: '600', letterSpacing: '-0.02em' }}>Settings</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-2)', padding: '4px' }}>
+          <span style={{ fontFamily: 'Roboto Mono, monospace', fontSize: '11px', fontWeight: '600', letterSpacing: '0.15em', color: 'rgba(255,255,255,0.9)', textTransform: 'uppercase' }}>Settings</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)', padding: '4px', display: 'flex' }}>
             <Icon.Close />
           </button>
         </div>
 
-        <div style={{ fontSize: '12px', color: 'var(--text-3)', padding: '8px 12px', background: 'var(--bg-3)', borderRadius: 'var(--radius-sm)' }}>
-          Signed in as <strong style={{ color: 'var(--text-2)' }}>{username}</strong>
+        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
+          Signed in as <strong style={{ color: 'rgba(255,255,255,0.6)' }}>{username}</strong>
         </div>
 
-        <Field label="Model">
-          <select
-            value={local.model}
-            onChange={(e) => setLocal(p => ({ ...p, model: e.target.value }))}
-            style={selectStyle}
-          >
-            {MODELS.map(m => (
-              <option key={m.id} value={m.id}>
-                {m.label}{m.tag ? ` — ${m.tag}` : ''}
-              </option>
-            ))}
+        <SField label="Model">
+          <select value={local.model} onChange={(e) => setLocal(p => ({ ...p, model: e.target.value }))} style={selectStyle}>
+            {MODELS.map(m => <option key={m.id} value={m.id}>{m.label}{m.tag ? ` — ${m.tag}` : ''}</option>)}
           </select>
-        </Field>
+        </SField>
 
-        <Field label="System prompt">
-          <textarea
-            value={local.systemPrompt}
-            onChange={(e) => setLocal(p => ({ ...p, systemPrompt: e.target.value }))}
-            rows={3}
-            style={{ ...inputStyle, resize: 'vertical', fontFamily: 'var(--font-mono)', fontSize: '12px' }}
-          />
-        </Field>
+        <SField label="System prompt">
+          <textarea value={local.systemPrompt} onChange={(e) => setLocal(p => ({ ...p, systemPrompt: e.target.value }))} rows={3}
+            style={{ ...inputStyle, resize: 'vertical', fontFamily: 'Roboto Mono, monospace', fontSize: '11px' }} />
+        </SField>
 
-        <Field label={`Temperature — ${local.temperature}`}>
-          <input
-            type="range" min="0" max="2" step="0.1"
-            value={local.temperature}
+        <SField label={`Temperature — ${local.temperature}`}>
+          <input type="range" min="0" max="2" step="0.1" value={local.temperature}
             onChange={(e) => setLocal(p => ({ ...p, temperature: parseFloat(e.target.value) }))}
-            style={{ width: '100%', accentColor: 'var(--text)' }}
-          />
-        </Field>
+            style={{ width: '100%', accentColor: 'white' }} />
+        </SField>
 
-        <Field label={`Max tokens — ${local.maxTokens}`}>
-          <input
-            type="range" min="256" max="4096" step="256"
-            value={local.maxTokens}
+        <SField label={`Max tokens — ${local.maxTokens}`}>
+          <input type="range" min="256" max="4096" step="256" value={local.maxTokens}
             onChange={(e) => setLocal(p => ({ ...p, maxTokens: parseInt(e.target.value) }))}
-            style={{ width: '100%', accentColor: 'var(--text)' }}
-          />
-        </Field>
+            style={{ width: '100%', accentColor: 'white' }} />
+        </SField>
 
-        <button
-          onClick={handleSave}
-          style={{ ...btnPrimary, marginTop: '4px' }}
-        >
-          {saved ? '✓ Saved' : 'Save settings'}
+        <button onClick={handleSave} style={{
+          padding: '11px', background: 'white', color: 'black', border: 'none',
+          borderRadius: '12px', fontSize: '12px', fontWeight: '700', cursor: 'pointer',
+          fontFamily: 'Roboto Mono, monospace', letterSpacing: '0.1em', textTransform: 'uppercase',
+          marginTop: '4px', transition: 'opacity 0.15s',
+        }}>
+          {saved ? '✓ Saved' : 'Save Settings'}
         </button>
       </div>
     </div>
   )
 }
 
-function Field({ label, children }) {
+function SField({ label, children }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      <label style={{ fontSize: '12px', color: 'var(--text-2)', fontWeight: '500', letterSpacing: '0.02em' }}>
-        {label.toUpperCase()}
+      <label style={{ fontFamily: 'Roboto Mono, monospace', fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontWeight: '500', letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+        {label}
       </label>
       {children}
     </div>
   )
-}
-
-// ── Shared micro-styles ───────────────────────────────────────────────────────
-
-const inputStyle = {
-  width: '100%', padding: '9px 12px',
-  background: 'var(--bg-3)', border: '1px solid var(--border)',
-  borderRadius: 'var(--radius-sm)', color: 'var(--text)',
-  fontSize: '13px', fontFamily: 'inherit', outline: 'none',
-}
-
-const selectStyle = {
-  ...inputStyle, cursor: 'pointer', appearance: 'none',
-}
-
-const btnPrimary = {
-  width: '100%', padding: '10px',
-  background: 'var(--text)', color: 'var(--bg)',
-  border: 'none', borderRadius: 'var(--radius-sm)',
-  fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit',
 }
 
 // ── Main App ──────────────────────────────────────────────────────────────────
@@ -241,13 +234,14 @@ const btnPrimary = {
 export default function App({ user, onLogout }) {
   const { token, username } = user
 
-  const [chats, setChats] = useState([]) // [{ id, title, messages, createdAt }]
+  const [chats, setChats] = useState([])
   const [activeChatId, setActiveChatId] = useState(null)
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [showSettings, setShowSettings] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [navShrunk, setNavShrunk] = useState(false)
   const [loadingHistory, setLoadingHistory] = useState(true)
 
   const abortRef = useRef(null)
@@ -257,7 +251,7 @@ export default function App({ user, onLogout }) {
   const activeChat = chats.find(c => c.id === activeChatId) || null
   const messages = activeChat?.messages || []
 
-  // ── Load history + settings from worker ──────────────────────────────────
+  // ── Load history + settings ───────────────────────────────────────────────
 
   useEffect(() => {
     async function load() {
@@ -275,29 +269,24 @@ export default function App({ user, onLogout }) {
           const data = await settRes.json()
           if (data.settings) setSettings({ ...DEFAULT_SETTINGS, ...data.settings })
         }
-      } catch (_) {
-        // silently fail — offline or worker not yet configured
-      } finally {
-        setLoadingHistory(false)
-      }
+      } catch (_) {}
+      finally { setLoadingHistory(false) }
     }
     load()
   }, [token])
-
-  // ── Auto-scroll ───────────────────────────────────────────────────────────
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // ── Persist chats to worker ───────────────────────────────────────────────
+  // ── Persist ───────────────────────────────────────────────────────────────
 
-  const persistChats = useCallback(async (updatedChats) => {
+  const persistChats = useCallback(async (updated) => {
     try {
       await fetch(`${WORKER_URL}/user/chats`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ chats: updatedChats }),
+        body: JSON.stringify({ chats: updated }),
       })
     } catch (_) {}
   }, [token])
@@ -312,6 +301,50 @@ export default function App({ user, onLogout }) {
     } catch (_) {}
   }, [token])
 
+  // ── Auto-name chat via AI ─────────────────────────────────────────────────
+
+  const autoNameChat = useCallback(async (chatId, firstUserMsg, firstAiMsg) => {
+    try {
+      const res = await fetch(`${WORKER_URL}/ai/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          model: '@cf/meta/llama-3.1-8b-instruct',
+          systemPrompt: 'You generate ultra-short chat titles. Reply with ONLY 2-5 words, no punctuation, no quotes.',
+          messages: [{ role: 'user', content: `Give a 2-5 word title for a chat that started with:\nUser: ${firstUserMsg}\nAI: ${firstAiMsg.slice(0, 120)}` }],
+          temperature: 0.5,
+          maxTokens: 20,
+        }),
+      })
+      if (!res.ok) return
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let title = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const chunk = decoder.decode(value, { stream: true })
+        for (const line of chunk.split('\n')) {
+          if (line.startsWith('data: ')) {
+            const raw = line.slice(6).trim()
+            if (raw === '[DONE]') break
+            try {
+              const parsed = JSON.parse(raw)
+              title += parsed.response || parsed.delta || ''
+            } catch (_) {}
+          }
+        }
+      }
+      const cleanTitle = title.trim().replace(/^["']|["']$/g, '').slice(0, 50)
+      if (!cleanTitle) return
+      setChats(prev => {
+        const updated = prev.map(c => c.id === chatId ? { ...c, title: cleanTitle } : c)
+        persistChats(updated)
+        return updated
+      })
+    } catch (_) {}
+  }, [token, persistChats])
+
   // ── Chat management ───────────────────────────────────────────────────────
 
   const newChat = () => {
@@ -319,6 +352,7 @@ export default function App({ user, onLogout }) {
     const updated = [chat, ...chats]
     setChats(updated)
     setActiveChatId(chat.id)
+    setSidebarOpen(false)
     persistChats(updated)
   }
 
@@ -330,13 +364,6 @@ export default function App({ user, onLogout }) {
     persistChats(updated)
   }
 
-  const updateChat = useCallback((chatId, updater) => {
-    setChats(prev => {
-      const updated = prev.map(c => c.id === chatId ? updater(c) : c)
-      return updated
-    })
-  }, [])
-
   // ── Send message ──────────────────────────────────────────────────────────
 
   const sendMessage = async () => {
@@ -346,25 +373,29 @@ export default function App({ user, onLogout }) {
     let chatId = activeChatId
     let currentChats = chats
 
-    // Create a new chat if none active
     if (!chatId) {
-      const chat = { id: genId(), title: text.slice(0, 40), messages: [], createdAt: new Date().toISOString() }
+      const chat = { id: genId(), title: 'New chat', messages: [], createdAt: new Date().toISOString() }
       currentChats = [chat, ...chats]
       setChats(currentChats)
       setActiveChatId(chat.id)
       chatId = chat.id
     }
 
+    const isFirstMessage = (currentChats.find(c => c.id === chatId)?.messages || []).length === 0
+
     const userMsg = { id: genId(), role: 'user', content: text, createdAt: new Date().toISOString() }
     const assistantMsg = { id: genId(), role: 'assistant', content: '', createdAt: new Date().toISOString(), streaming: true }
 
-    // Add user + placeholder assistant message
     setChats(prev => prev.map(c => c.id === chatId
-      ? { ...c, messages: [...c.messages, userMsg, assistantMsg], title: c.messages.length === 0 ? text.slice(0, 40) : c.title }
+      ? { ...c, messages: [...c.messages, userMsg, assistantMsg] }
       : c
     ))
     setInput('')
     setStreaming(true)
+
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+    }
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -397,7 +428,6 @@ export default function App({ user, onLogout }) {
         const { done, value } = await reader.read()
         if (done) break
         const chunk = decoder.decode(value, { stream: true })
-        // Parse SSE lines
         for (const line of chunk.split('\n')) {
           if (line.startsWith('data: ')) {
             const raw = line.slice(6).trim()
@@ -415,7 +445,6 @@ export default function App({ user, onLogout }) {
         }
       }
 
-      // Finalize — remove streaming flag, persist
       setChats(prev => {
         const updated = prev.map(c => c.id === chatId
           ? { ...c, messages: c.messages.map(m => m.id === assistantMsg.id ? { ...m, streaming: false } : m) }
@@ -424,11 +453,17 @@ export default function App({ user, onLogout }) {
         persistChats(updated)
         return updated
       })
+
+      // Auto-name after first exchange
+      if (isFirstMessage && fullText.trim()) {
+        autoNameChat(chatId, text, fullText)
+      }
+
     } catch (err) {
       if (err.name === 'AbortError') {
         setChats(prev => {
           const updated = prev.map(c => c.id === chatId
-            ? { ...c, messages: c.messages.map(m => m.id === assistantMsg.id ? { ...m, content: m.content || '*(stopped)*', streaming: false } : m) }
+            ? { ...c, messages: c.messages.map(m => m.id === assistantMsg.id ? { ...m, content: m.content || '(stopped)', streaming: false } : m) }
             : c
           )
           persistChats(updated)
@@ -437,8 +472,7 @@ export default function App({ user, onLogout }) {
       } else {
         setChats(prev => prev.map(c => c.id === chatId
           ? { ...c, messages: c.messages.map(m => m.id === assistantMsg.id
-              ? { ...m, content: `Error: ${err.message}`, streaming: false }
-              : m) }
+              ? { ...m, content: `Error: ${err.message}`, streaming: false } : m) }
           : c
         ))
       }
@@ -448,9 +482,7 @@ export default function App({ user, onLogout }) {
     }
   }
 
-  const stopStreaming = () => {
-    abortRef.current?.abort()
-  }
+  const stopStreaming = () => abortRef.current?.abort()
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -471,80 +503,282 @@ export default function App({ user, onLogout }) {
   return (
     <>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&display=swap');
+
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
-        @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
-        .msg-enter { animation: fadeIn 0.2s ease; }
-        .sidebar-item:hover .delete-btn { opacity: 1 !important; }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+        .msg-enter { animation: fadeIn 0.25s ease; }
+
+        .app-root {
+          height: 100%;
+          background-color: #050505;
+          background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h40v40H0V0zm1 1h38v38H1V1z' fill='%23ffffff' fill-opacity='0.025' fill-rule='evenodd'/%3E%3C/svg%3E");
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          position: relative;
+          font-family: 'Inter', -apple-system, sans-serif;
+        }
+
+        /* Top ambient glow */
+        .ambient-top {
+          position: fixed;
+          top: -30%;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 140vw;
+          height: 90vw;
+          max-height: 700px;
+          border-radius: 100%;
+          background: rgba(255,255,255,0.07);
+          filter: blur(120px);
+          pointer-events: none;
+          z-index: 0;
+        }
+        .ambient-top-core {
+          position: fixed;
+          top: -15%;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 60vw;
+          height: 40vw;
+          max-height: 350px;
+          border-radius: 100%;
+          background: rgba(255,255,255,0.1);
+          filter: blur(70px);
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        /* Input glow — sits at bottom */
+        .ambient-input {
+          position: fixed;
+          bottom: -60px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 80vw;
+          max-width: 700px;
+          height: 200px;
+          border-radius: 100%;
+          background: rgba(255,255,255,0.06);
+          filter: blur(60px);
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        /* Tux-style navbar */
+        #tux-nav {
+          transition: max-width 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+                      padding 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+                      background-color 0.4s ease;
+          max-width: 520px;
+          width: 90%;
+        }
+        #tux-nav.shrunk {
+          max-width: 64px !important;
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+          justify-content: center !important;
+          background-color: rgba(255,255,255,0.03) !important;
+          border-color: rgba(255,255,255,0.15) !important;
+        }
+        .nav-btn {
+          transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+          max-width: 140px;
+          overflow: hidden;
+          white-space: nowrap;
+          opacity: 1;
+        }
+        .nav-btn.shrunk {
+          max-width: 0 !important;
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+          margin-left: 0 !important;
+          margin-right: 0 !important;
+          opacity: 0 !important;
+          border-width: 0 !important;
+          pointer-events: none;
+        }
+        #grid-icon {
+          transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        /* Sidebar overlay */
+        .sidebar-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 80;
+          background: rgba(0,0,0,0.5);
+          backdrop-filter: blur(6px);
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.3s ease;
+        }
+        .sidebar-overlay.open {
+          opacity: 1;
+          pointer-events: all;
+        }
+        .sidebar-panel {
+          position: fixed;
+          top: 0;
+          left: 0;
+          bottom: 0;
+          width: 260px;
+          z-index: 90;
+          background: #0a0a0a;
+          border-right: 1px solid rgba(255,255,255,0.07);
+          display: flex;
+          flex-direction: column;
+          transform: translateX(-100%);
+          transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .sidebar-panel.open {
+          transform: translateX(0);
+        }
+        .chat-item:hover .del-btn { opacity: 1 !important; }
+
+        /* Scrollbar */
+        .msg-scroll::-webkit-scrollbar { width: 3px; }
+        .msg-scroll::-webkit-scrollbar-track { background: transparent; }
+        .msg-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
       `}</style>
 
-      <div style={{ height: '100%', display: 'flex', overflow: 'hidden' }}>
+      {/* Background glows */}
+      <div className="ambient-top" />
+      <div className="ambient-top-core" />
+      <div className="ambient-input" />
 
-        {/* ── Sidebar ── */}
+      <div className="app-root">
+
+        {/* ── Floating Tux Navbar ── */}
         <div style={{
-          width: sidebarOpen ? '240px' : '0',
-          minWidth: sidebarOpen ? '240px' : '0',
-          overflow: 'hidden',
-          transition: 'all 0.2s ease',
-          background: 'var(--bg-2)',
-          borderRight: '1px solid var(--border)',
-          display: 'flex',
-          flexDirection: 'column',
+          position: 'fixed', top: '20px', left: 0, right: 0,
+          display: 'flex', justifyContent: 'center',
+          zIndex: 100, pointerEvents: 'none',
         }}>
-          <div style={{ padding: '16px 12px 12px', display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, overflow: 'hidden' }}>
-            {/* New chat btn */}
+          <nav
+            id="tux-nav"
+            style={{
+              pointerEvents: 'all',
+              height: '52px',
+              background: 'rgba(0,0,0,0.55)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '16px',
+              padding: '0 10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
+            }}
+            className={navShrunk ? 'shrunk' : ''}
+          >
+            {/* CHAT button */}
             <button
-              onClick={newChat}
+              className={`nav-btn${navShrunk ? ' shrunk' : ''}`}
+              onClick={() => setSidebarOpen(true)}
               style={{
-                display: 'flex', alignItems: 'center', gap: '8px',
-                padding: '9px 12px', borderRadius: 'var(--radius-sm)',
-                background: 'var(--bg-4)', border: '1px solid var(--border)',
-                color: 'var(--text)', fontSize: '13px', fontWeight: '500',
-                cursor: 'pointer', fontFamily: 'inherit', width: '100%',
-                transition: 'border-color 0.15s',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '8px 14px', borderRadius: '10px',
+                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.05)',
+                cursor: 'pointer', color: 'rgba(245,245,245,0.9)',
               }}
-              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--border-hover)'}
-              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
             >
+              <span style={{ fontFamily: 'Roboto Mono, monospace', fontSize: '10px', fontWeight: '600', letterSpacing: '0.2em' }}>CHAT</span>
+            </button>
+
+            {/* Right side */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {/* AGENT button */}
+              <button
+                className={`nav-btn${navShrunk ? ' shrunk' : ''}`}
+                onClick={() => {/* agent panel coming later */}}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '8px 14px', borderRadius: '10px',
+                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.05)',
+                  cursor: 'pointer', color: 'rgba(224,224,224,0.7)',
+                }}
+              >
+                <span style={{ fontFamily: 'Roboto Mono, monospace', fontSize: '10px', fontWeight: '600', letterSpacing: '0.2em' }}>AGENT</span>
+              </button>
+
+              {/* Grid / shrink toggle */}
+              <button
+                onClick={() => setNavShrunk(p => !p)}
+                style={{
+                  width: '36px', height: '36px', borderRadius: '10px', flexShrink: 0,
+                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.05)',
+                  cursor: 'pointer', color: 'rgba(200,200,200,0.7)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'background 0.2s',
+                }}
+              >
+                <span id="grid-icon" style={{ display: 'flex', transform: navShrunk ? 'rotate(90deg) scale(0.85)' : 'rotate(0deg) scale(1)', transition: 'transform 0.5s cubic-bezier(0.22,1,0.36,1)' }}>
+                  <Icon.Grid />
+                </span>
+              </button>
+            </div>
+          </nav>
+        </div>
+
+        {/* ── Sidebar overlay ── */}
+        <div className={`sidebar-overlay${sidebarOpen ? ' open' : ''}`} onClick={() => setSidebarOpen(false)} />
+
+        {/* ── Sidebar panel ── */}
+        <div className={`sidebar-panel${sidebarOpen ? ' open' : ''}`}>
+          <div style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, overflow: 'hidden' }}>
+
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span style={{ fontFamily: 'Roboto Mono, monospace', fontSize: '10px', fontWeight: '600', letterSpacing: '0.2em', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>Chats</span>
+              <button onClick={() => setSidebarOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', display: 'flex', padding: '4px' }}>
+                <Icon.Close />
+              </button>
+            </div>
+
+            {/* New chat */}
+            <button onClick={newChat} style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              padding: '9px 12px', borderRadius: '10px',
+              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)',
+              color: 'rgba(255,255,255,0.7)', fontSize: '13px', fontWeight: '500',
+              cursor: 'pointer', fontFamily: 'inherit', width: '100%',
+              marginBottom: '8px',
+            }}>
               <Icon.Plus /> New chat
             </button>
 
             {/* Chat list */}
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2px' }}>
               {loadingHistory
-                ? <p style={{ fontSize: '12px', color: 'var(--text-3)', padding: '8px 4px' }}>Loading…</p>
+                ? <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.2)', padding: '8px 4px', fontFamily: 'Roboto Mono, monospace' }}>Loading…</p>
                 : chats.length === 0
-                  ? <p style={{ fontSize: '12px', color: 'var(--text-3)', padding: '8px 4px' }}>No chats yet.</p>
+                  ? <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.2)', padding: '8px 4px' }}>No chats yet.</p>
                   : chats.map(chat => (
                     <div
                       key={chat.id}
-                      className="sidebar-item"
-                      onClick={() => setActiveChatId(chat.id)}
+                      className="chat-item"
+                      onClick={() => { setActiveChatId(chat.id); setSidebarOpen(false) }}
                       style={{
                         display: 'flex', alignItems: 'center', gap: '8px',
-                        padding: '8px 10px', borderRadius: 'var(--radius-sm)',
-                        cursor: 'pointer',
-                        background: chat.id === activeChatId ? 'var(--bg-4)' : 'transparent',
+                        padding: '9px 10px', borderRadius: '10px', cursor: 'pointer',
+                        background: chat.id === activeChatId ? 'rgba(255,255,255,0.07)' : 'transparent',
                         border: '1px solid',
-                        borderColor: chat.id === activeChatId ? 'var(--border)' : 'transparent',
-                        transition: 'all 0.1s',
-                        position: 'relative',
+                        borderColor: chat.id === activeChatId ? 'rgba(255,255,255,0.1)' : 'transparent',
                       }}
                     >
-                      <span style={{ color: 'var(--text-3)', flexShrink: 0 }}><Icon.Chat /></span>
+                      <span style={{ color: 'rgba(255,255,255,0.25)', flexShrink: 0 }}><Icon.Chat /></span>
                       <span style={{
-                        fontSize: '13px', color: chat.id === activeChatId ? 'var(--text)' : 'var(--text-2)',
-                        flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        fontSize: '13px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        color: chat.id === activeChatId ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.45)',
+                        fontWeight: '300',
                       }}>{chat.title || 'Untitled'}</span>
                       <button
-                        className="delete-btn"
+                        className="del-btn"
                         onClick={(e) => deleteChat(chat.id, e)}
-                        style={{
-                          opacity: 0, background: 'none', border: 'none',
-                          cursor: 'pointer', color: 'var(--text-3)', padding: '2px',
-                          flexShrink: 0, transition: 'opacity 0.15s',
-                          display: 'flex', alignItems: 'center',
-                        }}
-                        title="Delete chat"
+                        style={{ opacity: 0, background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.25)', padding: '2px', display: 'flex', flexShrink: 0, transition: 'opacity 0.15s' }}
                       >
                         <Icon.Trash />
                       </button>
@@ -553,32 +787,22 @@ export default function App({ user, onLogout }) {
               }
             </div>
 
-            {/* Bottom user row */}
-            <div style={{
-              borderTop: '1px solid var(--border)', paddingTop: '12px',
-              display: 'flex', alignItems: 'center', gap: '8px',
-            }}>
+            {/* User row */}
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div style={{
-                width: '28px', height: '28px', borderRadius: '50%',
-                background: 'var(--bg-4)', border: '1px solid var(--border)',
+                width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
+                background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '11px', color: 'var(--text-2)', fontWeight: '600', flexShrink: 0,
+                fontSize: '11px', color: 'rgba(255,255,255,0.5)', fontWeight: '600',
+                fontFamily: 'Roboto Mono, monospace',
               }}>
                 {username[0].toUpperCase()}
               </div>
-              <span style={{ fontSize: '13px', color: 'var(--text-2)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{username}</span>
-              <button
-                onClick={() => setShowSettings(true)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: '4px', display: 'flex' }}
-                title="Settings"
-              >
+              <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: '300' }}>{username}</span>
+              <button onClick={() => { setShowSettings(true); setSidebarOpen(false) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.25)', padding: '4px', display: 'flex' }}>
                 <Icon.Settings />
               </button>
-              <button
-                onClick={onLogout}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: '4px', display: 'flex' }}
-                title="Sign out"
-              >
+              <button onClick={onLogout} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.25)', padding: '4px', display: 'flex' }}>
                 <Icon.Logout />
               </button>
             </div>
@@ -586,127 +810,120 @@ export default function App({ user, onLogout }) {
         </div>
 
         {/* ── Main chat area ── */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
 
-          {/* Top bar */}
+          {/* Spacer for navbar */}
+          <div style={{ height: '88px', flexShrink: 0 }} />
+
+          {/* Model selector — subtle, top center */}
           <div style={{
-            padding: '12px 16px', borderBottom: '1px solid var(--border)',
-            display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0,
+            display: 'flex', justifyContent: 'center',
+            paddingBottom: '8px', flexShrink: 0,
           }}>
-            <button
-              onClick={() => setSidebarOpen(p => !p)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-2)', padding: '4px', display: 'flex', borderRadius: '6px' }}
-              title={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-              </svg>
-            </button>
-
-            <span style={{ fontSize: '14px', color: 'var(--text-2)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {activeChat?.title || 'AI Chat'}
-            </span>
-
-            {/* Model selector */}
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <select
                 value={settings.model}
-                onChange={(e) => {
-                  const s = { ...settings, model: e.target.value }
-                  setSettings(s)
-                  persistSettings(s)
-                }}
+                onChange={(e) => { const s = { ...settings, model: e.target.value }; setSettings(s); persistSettings(s) }}
                 style={{
-                  appearance: 'none', background: 'var(--bg-3)', border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-sm)', color: 'var(--text-2)', fontSize: '12px',
-                  padding: '5px 28px 5px 10px', cursor: 'pointer', fontFamily: 'inherit', outline: 'none',
+                  appearance: 'none', background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px',
+                  color: 'rgba(255,255,255,0.35)', fontSize: '11px',
+                  padding: '5px 24px 5px 10px', cursor: 'pointer',
+                  fontFamily: 'Roboto Mono, monospace', outline: 'none',
+                  letterSpacing: '0.05em',
                 }}
               >
                 {MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
               </select>
-              <span style={{ position: 'absolute', right: '8px', pointerEvents: 'none', color: 'var(--text-3)' }}>
+              <span style={{ position: 'absolute', right: '7px', pointerEvents: 'none', color: 'rgba(255,255,255,0.25)' }}>
                 <Icon.ChevronDown />
               </span>
             </div>
           </div>
 
           {/* Messages */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {messages.length === 0 ? (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', opacity: 0.4 }}>
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                </svg>
-                <p style={{ fontSize: '14px', color: 'var(--text-2)' }}>Start a conversation</p>
-              </div>
-            ) : (
-              messages.map(msg => <Message key={msg.id} msg={msg} />)
-            )}
-            <div ref={bottomRef} />
+          <div className="msg-scroll" style={{ flex: 1, overflowY: 'auto', padding: '0 24px' }}>
+            <div style={{ maxWidth: '720px', margin: '0 auto' }}>
+              {messages.length === 0 ? (
+                <div style={{ paddingTop: '80px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', opacity: 0.25 }}>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'white' }}>
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  </svg>
+                  <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', fontFamily: 'Roboto Mono, monospace', letterSpacing: '0.1em' }}>START A CONVERSATION</p>
+                </div>
+              ) : (
+                messages.map(msg => <Message key={msg.id} msg={msg} />)
+              )}
+              <div ref={bottomRef} style={{ height: '20px' }} />
+            </div>
           </div>
 
-          {/* Input bar */}
-          <div style={{
-            padding: '12px 16px 16px', borderTop: '1px solid var(--border)',
-            display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0,
-          }}>
-            <div style={{
-              display: 'flex', gap: '8px', alignItems: 'flex-end',
-              background: 'var(--bg-3)', border: '1px solid var(--border)',
-              borderRadius: 'var(--radius)', padding: '8px 8px 8px 14px',
-              transition: 'border-color 0.15s',
-            }}
-              onFocusCapture={e => e.currentTarget.style.borderColor = 'var(--border-hover)'}
-              onBlurCapture={e => e.currentTarget.style.borderColor = 'var(--border)'}
-            >
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => {
-                  setInput(e.target.value)
-                  e.target.style.height = 'auto'
-                  e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px'
-                }}
-                onKeyDown={handleKeyDown}
-                placeholder="Message…"
-                rows={1}
+          {/* Input area */}
+          <div style={{ padding: '12px 24px 24px', flexShrink: 0, position: 'relative', zIndex: 2 }}>
+            <div style={{ maxWidth: '720px', margin: '0 auto' }}>
+              <div
                 style={{
-                  flex: 1, background: 'none', border: 'none', outline: 'none',
-                  color: 'var(--text)', fontSize: '14px', fontFamily: 'inherit',
-                  resize: 'none', lineHeight: '1.5', padding: '4px 0',
-                  maxHeight: '160px', overflowY: 'auto',
+                  display: 'flex', gap: '10px', alignItems: 'flex-end',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '16px', padding: '10px 10px 10px 16px',
+                  backdropFilter: 'blur(20px)',
+                  boxShadow: '0 0 40px rgba(255,255,255,0.03)',
+                  transition: 'border-color 0.2s',
                 }}
-              />
-              <button
-                onClick={streaming ? stopStreaming : sendMessage}
-                disabled={!streaming && !input.trim()}
-                style={{
-                  width: '34px', height: '34px', borderRadius: '8px', flexShrink: 0,
-                  background: streaming ? 'var(--bg-4)' : (input.trim() ? 'var(--text)' : 'var(--bg-4)'),
-                  border: streaming ? '1px solid var(--border)' : 'none',
-                  color: streaming ? 'var(--text)' : (input.trim() ? 'var(--bg)' : 'var(--text-3)'),
-                  cursor: (streaming || input.trim()) ? 'pointer' : 'default',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  transition: 'all 0.15s',
-                }}
+                onFocusCapture={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'}
+                onBlurCapture={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'}
               >
-                {streaming ? <Icon.Stop /> : <Icon.Send />}
-              </button>
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => {
+                    setInput(e.target.value)
+                    e.target.style.height = 'auto'
+                    e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px'
+                  }}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Message…"
+                  rows={1}
+                  style={{
+                    flex: 1, background: 'none', border: 'none', outline: 'none',
+                    color: 'rgba(255,255,255,0.85)', fontSize: '14px', fontFamily: 'inherit',
+                    resize: 'none', lineHeight: '1.6', padding: '4px 0',
+                    maxHeight: '160px', overflowY: 'auto',
+                  }}
+                />
+                <button
+                  onClick={streaming ? stopStreaming : sendMessage}
+                  disabled={!streaming && !input.trim()}
+                  style={{
+                    width: '36px', height: '36px', borderRadius: '10px', flexShrink: 0,
+                    background: streaming
+                      ? 'rgba(255,255,255,0.08)'
+                      : input.trim() ? 'white' : 'rgba(255,255,255,0.06)',
+                    border: streaming ? '1px solid rgba(255,255,255,0.15)' : 'none',
+                    color: streaming ? 'white' : input.trim() ? '#050505' : 'rgba(255,255,255,0.2)',
+                    cursor: (streaming || input.trim()) ? 'pointer' : 'default',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  {streaming ? <Icon.Stop /> : <Icon.Send />}
+                </button>
+              </div>
+              <p style={{
+                textAlign: 'center', marginTop: '8px',
+                fontFamily: 'Roboto Mono, monospace', fontSize: '10px',
+                color: 'rgba(255,255,255,0.15)', letterSpacing: '0.08em',
+              }}>
+                {currentModel.label} · Enter to send
+              </p>
             </div>
-            <p style={{ fontSize: '11px', color: 'var(--text-3)', textAlign: 'center' }}>
-              {currentModel.label} · Enter to send, Shift+Enter for new line
-            </p>
           </div>
         </div>
       </div>
 
       {showSettings && (
-        <SettingsPanel
-          settings={settings}
-          onSave={handleSaveSettings}
-          onClose={() => setShowSettings(false)}
-          username={username}
-        />
+        <SettingsPanel settings={settings} onSave={handleSaveSettings} onClose={() => setShowSettings(false)} username={username} />
       )}
     </>
   )
