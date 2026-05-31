@@ -17,322 +17,224 @@ const DEFAULT_SETTINGS = {
   maxTokens: 1024,
 }
 
-// Rate limit: max 10 messages per minute per user (client-side guard)
 const RATE_LIMIT = { max: 10, windowMs: 60000 }
 
 function genId() { return Math.random().toString(36).slice(2, 10) }
-function formatTime(iso) {
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+// ── Minimal markdown renderer ─────────────────────────────────────────────────
+function renderMD(raw) {
+  const codeBlocks = []
+  let txt = raw.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+    const i = codeBlocks.length
+    codeBlocks.push({ lang: lang || 'code', code: code.trim() })
+    return `\x00CODE${i}\x00`
+  })
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+  txt = esc(txt)
+  txt = txt.replace(/`([^`\n]+)`/g, '<code>$1</code>')
+  txt = txt.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+  txt = txt.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  txt = txt.replace(/\*(.+?)\*/g, '<em>$1</em>')
+  txt = txt.replace(/~~(.+?)~~/g, '<del>$1</del>')
+  txt = txt.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+  txt = txt.replace(/^### (.+)$/gm, '<h3>$1</h3>')
+  txt = txt.replace(/^## (.+)$/gm, '<h2>$1</h2>')
+  txt = txt.replace(/^# (.+)$/gm, '<h1>$1</h1>')
+  txt = txt.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
+  txt = txt.replace(/^---+$/gm, '<hr>')
+  txt = txt.replace(/^(\* |- )(.+)$/gm, '<li>$2</li>')
+  txt = txt.replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
+  txt = txt.replace(/(<li>[\s\S]*?<\/li>)(\n<li>[\s\S]*?<\/li>)*/g, m => `<ul>${m}</ul>`)
+  const parts = txt.split(/\n{2,}/)
+  txt = parts.map(p => {
+    const t = p.trim()
+    if (!t) return ''
+    if (/^\x00CODE/.test(t) || /^<(h[1-6]|ul|ol|li|hr|blockquote)/.test(t)) return t
+    return `<p>${t.replace(/\n/g, '<br>')}</p>`
+  }).filter(Boolean).join('\n')
+  txt = txt.replace(/\x00CODE(\d+)\x00/g, (_, i) => {
+    const { lang, code } = codeBlocks[i]
+    return `<pre class="code-block"><div class="code-header"><span class="code-lang">${esc(lang)}</span><button class="copy-code-btn" onclick="(function(btn){navigator.clipboard.writeText(btn.closest('pre').querySelector('code').textContent).then(()=>{btn.textContent='Copied';setTimeout(()=>btn.textContent='Copy',1800)})})(this)">Copy</button></div><code>${esc(code)}</code></pre>`
+  })
+  return txt
 }
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
-const Icon = {
-  Plus: () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-    </svg>
-  ),
-  Send: () => (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2" fill="currentColor" stroke="none"/>
-    </svg>
-  ),
-  Trash: () => (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
-    </svg>
-  ),
-  Settings: () => (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-    </svg>
-  ),
-  Logout: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-    </svg>
-  ),
-  ChevronDown: () => (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-      <polyline points="6 9 12 15 18 9"/>
-    </svg>
-  ),
-  Chat: () => (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-    </svg>
-  ),
-  Close: () => (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-    </svg>
-  ),
-  Stop: () => (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-      <rect x="4" y="4" width="16" height="16" rx="3"/>
-    </svg>
-  ),
-  Grid: () => (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
-      <rect x="0" y="0" width="5.5" height="5.5" rx="1"/>
-      <rect x="8.5" y="0" width="5.5" height="5.5" rx="1"/>
-      <rect x="0" y="8.5" width="5.5" height="5.5" rx="1"/>
-      <rect x="8.5" y="8.5" width="5.5" height="5.5" rx="1"/>
-    </svg>
-  ),
-  Pencil: () => (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-    </svg>
-  ),
-  Copy: () => (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-    </svg>
-  ),
-  Sound: () => (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
-    </svg>
-  ),
-  Retry: () => (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/>
-    </svg>
-  ),
-  Attach: () => (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-    </svg>
-  ),
-  Globe: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-    </svg>
-  ),
-  Code: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
-    </svg>
-  ),
-  Doc: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
-    </svg>
-  ),
-  Image: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
-    </svg>
-  ),
-}
+const ChevronSvg = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+)
+const ArrowUpSvg = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+)
+const StopSvg = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="3"/></svg>
+)
+const CopySvg = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+)
+const Retrysvg = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+)
+const TrashSvg = () => (
+  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+)
+const CheckSvg = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+)
+const BotSvg = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+)
+const HamburgerSvg = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+)
+const PlusSvg = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+)
+const SearchSvg = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+)
+const ChatBubbleSvg = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+)
+const XSvg = () => (
+  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+)
+const ChevronRightSvg = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+)
+const ArrowRightSvg = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+)
+const ChevronDownFull = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+)
+const AttachSvg = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.47"/></svg>
+)
+const ToolsSvg = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+)
+const SunSvg = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+)
+const MoonSvg = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+)
+const ScrollDownSvg = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+)
 
 // ── Message component ─────────────────────────────────────────────────────────
-function Message({ msg, onRetry, onCopy, onSpeak, speakingId }) {
+function Message({ msg, onRetry }) {
   const isUser = msg.role === 'user'
   const [copied, setCopied] = useState(false)
-  const isSpeaking = speakingId === msg.id
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(msg.content).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1800)
-    })
-    onCopy && onCopy(msg)
+  const handleCopy = async () => {
+    try { await navigator.clipboard.writeText(msg.content) } catch (_) {}
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1800)
   }
 
   return (
-    <div className="msg-enter" style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: isUser ? 'flex-end' : 'flex-start',
-      gap: '4px',
-      padding: '10px 0',
-    }}>
-      {/* Label row */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: '6px',
-        marginBottom: '4px',
-        flexDirection: isUser ? 'row-reverse' : 'row',
-      }}>
-        <span style={{
-          fontFamily: 'Roboto Mono, monospace', fontSize: '9px', fontWeight: '600',
-          letterSpacing: '0.15em', textTransform: 'uppercase',
-          color: isUser ? 'rgba(120,180,255,0.6)' : 'rgba(255,255,255,0.28)',
-        }}>
-          {isUser ? 'You' : 'AI'}
-        </span>
-        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.18)', fontFamily: 'Roboto Mono, monospace' }}>
-          {formatTime(msg.createdAt)}
-        </span>
-      </div>
-
-      {/* Content */}
+    <div className="msg-row anim-in">
       {isUser ? (
-        // User — bubble
-        <div style={{
-          maxWidth: '78%',
-          padding: '10px 14px',
-          borderRadius: '18px 18px 4px 18px',
-          background: 'linear-gradient(135deg, rgba(59,130,246,0.22) 0%, rgba(99,102,241,0.18) 100%)',
-          border: '1px solid rgba(99,130,255,0.22)',
-          backdropFilter: 'blur(10px)',
-        }}>
-          <p style={{
-            fontSize: '14px', lineHeight: '1.75',
-            color: 'rgba(220,235,255,0.9)', whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word', margin: 0, fontWeight: '400',
-          }}>
-            {msg.content}
-          </p>
+        <div className="user-wrap">
+          <div className="user-bubble">{msg.content}</div>
+          <div className="user-meta">
+            <button className="act" data-tip="Copy" onClick={handleCopy}>
+              {copied ? <CheckSvg /> : <CopySvg />}
+            </button>
+          </div>
         </div>
       ) : (
-        // AI — flat text on background
-        <div style={{ maxWidth: '88%' }}>
-          <p style={{
-            fontSize: '14px', lineHeight: '1.8',
-            color: 'rgba(255,255,255,0.88)', whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word', margin: 0, fontWeight: '400',
-          }}>
-            {msg.content}
-            {msg.streaming && (
-              <span style={{
-                display: 'inline-block', width: '2px', height: '14px',
-                background: 'rgba(255,255,255,0.45)', borderRadius: '1px',
-                marginLeft: '3px', verticalAlign: 'middle',
-                animation: 'blink 0.9s step-end infinite',
-              }} />
-            )}
-          </p>
-
-          {/* AI action tools */}
-          {!msg.streaming && (
-            <div style={{
-              display: 'flex', gap: '2px', marginTop: '10px', alignItems: 'center',
-            }}>
-              {[
-                { label: copied ? 'Copied' : 'Copy', icon: <Icon.Copy />, action: handleCopy, active: copied },
-                { label: isSpeaking ? 'Stop' : 'Sound', icon: <Icon.Sound />, action: () => onSpeak(msg), active: isSpeaking },
-                { label: 'Retry', icon: <Icon.Retry />, action: () => onRetry(msg) },
-              ].map(({ label, icon, action, active }) => (
-                <button key={label} onClick={action} style={{
-                  display: 'flex', alignItems: 'center', gap: '5px',
-                  padding: '4px 9px', borderRadius: '8px',
-                  background: active ? 'rgba(255,255,255,0.1)' : 'transparent',
-                  border: '1px solid', borderColor: active ? 'rgba(255,255,255,0.15)' : 'transparent',
-                  color: active ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.28)',
-                  fontSize: '11px', fontFamily: 'Roboto Mono, monospace',
-                  letterSpacing: '0.05em', cursor: 'pointer',
-                  transition: 'all 0.15s',
+        <div className="asst-wrap">
+          <div className="asst-av"><BotSvg /></div>
+          <div className="asst-body">
+            {msg.streaming && msg.content === '' ? (
+              <div className="typing">
+                <div className="typing-dot" />
+                <div className="typing-dot" />
+                <div className="typing-dot" />
+              </div>
+            ) : (
+              <div
+                className="asst-text"
+                dangerouslySetInnerHTML={{
+                  __html: renderMD(msg.content) + (msg.streaming ? '<span class="cur"></span>' : '')
                 }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)' }}
-                  onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.28)'; e.currentTarget.style.borderColor = 'transparent' } }}
-                >
-                  {icon} {label}
+              />
+            )}
+            {!msg.streaming && (
+              <div className="asst-meta">
+                <button className="act" data-tip="Copy" onClick={handleCopy}>
+                  {copied ? <CheckSvg /> : <CopySvg />}
                 </button>
-              ))}
-            </div>
-          )}
+                <button className="act" data-tip="Retry" onClick={() => onRetry(msg)}>
+                  <Retrysvg />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
   )
 }
 
-// ── Tools popup ───────────────────────────────────────────────────────────────
-function ToolsPopup({ onSelect, onClose, anchorRef }) {
-  const tools = [
-    { id: 'web', label: 'Web Search', icon: <Icon.Globe />, desc: 'Search the internet' },
-    { id: 'code', label: 'Code Interpreter', icon: <Icon.Code />, desc: 'Run & analyze code' },
-    { id: 'docs', label: 'Docs', icon: <Icon.Doc />, desc: 'Analyze documents' },
-    { id: 'image', label: 'Image', icon: <Icon.Image />, desc: 'Attach an image' },
-  ]
-  return (
-    <div style={{
-      position: 'absolute', bottom: 'calc(100% + 10px)', left: 0,
-      background: 'rgba(12,12,12,0.95)', border: '1px solid rgba(255,255,255,0.1)',
-      borderRadius: '14px', padding: '6px', minWidth: '200px',
-      backdropFilter: 'blur(20px)', boxShadow: '0 20px 40px rgba(0,0,0,0.6)',
-      zIndex: 50,
-    }}>
-      {tools.map(t => (
-        <button key={t.id} onClick={() => { onSelect(t.id); onClose() }}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '10px',
-            width: '100%', padding: '9px 10px', borderRadius: '9px',
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: 'rgba(255,255,255,0.65)', textAlign: 'left',
-            transition: 'background 0.15s',
-          }}
-          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.07)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'none'}
-        >
-          <span style={{ color: 'rgba(255,255,255,0.4)', flexShrink: 0 }}>{t.icon}</span>
-          <div>
-            <div style={{ fontSize: '12px', fontWeight: '500', color: 'rgba(255,255,255,0.8)' }}>{t.label}</div>
-            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', fontFamily: 'Roboto Mono, monospace' }}>{t.desc}</div>
-          </div>
-        </button>
-      ))}
-    </div>
-  )
-}
-
 // ── Settings panel ────────────────────────────────────────────────────────────
-const inputStyle = {
-  width: '100%', padding: '9px 12px',
-  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-  borderRadius: '10px', color: 'rgba(255,255,255,0.85)',
-  fontSize: '13px', fontFamily: 'inherit', outline: 'none',
-}
-const selectStyle = { ...inputStyle, cursor: 'pointer', appearance: 'none' }
-
 function SettingsPanel({ settings, onSave, onClose, username }) {
   const [local, setLocal] = useState(settings)
   const [saved, setSaved] = useState(false)
   const handleSave = () => { onSave(local); setSaved(true); setTimeout(() => setSaved(false), 1500) }
+
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
-      backdropFilter: 'blur(14px)', zIndex: 200,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px',
+      position: 'fixed', inset: 0,
+      background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)',
+      zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px',
     }} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{
-        background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)',
-        borderRadius: '20px', width: '100%', maxWidth: '460px',
+        background: 'var(--surface)', border: '1px solid var(--border)',
+        borderRadius: '20px', width: '100%', maxWidth: '440px',
         padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px',
-        boxShadow: '0 30px 60px rgba(0,0,0,0.7)',
+        boxShadow: 'var(--shadow-lg)',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontFamily: 'Roboto Mono, monospace', fontSize: '11px', fontWeight: '600', letterSpacing: '0.15em', color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase' }}>Settings</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)', padding: '4px', display: 'flex' }}><Icon.Close /></button>
+          <span style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text)', letterSpacing: '-0.01em' }}>Settings</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', display: 'flex', padding: '4px', borderRadius: '6px' }}>
+            <XSvg />
+          </button>
         </div>
-        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.06)' }}>
-          Signed in as <strong style={{ color: 'rgba(255,255,255,0.6)' }}>{username}</strong>
+
+        <div style={{ fontSize: '12.5px', color: 'var(--text-2)', padding: '8px 12px', background: 'var(--surface2)', borderRadius: '10px', border: '1px solid var(--border)' }}>
+          Signed in as <strong style={{ color: 'var(--text)' }}>{username}</strong>
         </div>
+
         <SField label="Model">
-          <select value={local.model} onChange={e => setLocal(p => ({ ...p, model: e.target.value }))} style={selectStyle}>
+          <select value={local.model} onChange={e => setLocal(p => ({ ...p, model: e.target.value }))} style={sInputStyle}>
             {MODELS.map(m => <option key={m.id} value={m.id}>{m.label}{m.tag ? ` — ${m.tag}` : ''}</option>)}
           </select>
         </SField>
         <SField label="System Prompt">
           <textarea value={local.systemPrompt} onChange={e => setLocal(p => ({ ...p, systemPrompt: e.target.value }))} rows={3}
-            style={{ ...inputStyle, resize: 'vertical', fontFamily: 'Roboto Mono, monospace', fontSize: '11px' }} />
+            style={{ ...sInputStyle, resize: 'vertical', fontFamily: 'var(--mono)', fontSize: '12px' }} />
         </SField>
         <SField label={`Temperature — ${local.temperature}`}>
           <input type="range" min="0" max="2" step="0.1" value={local.temperature}
             onChange={e => setLocal(p => ({ ...p, temperature: parseFloat(e.target.value) }))}
-            style={{ width: '100%', accentColor: 'white' }} />
+            style={{ width: '100%', accentColor: 'var(--accent)' }} />
         </SField>
         <SField label={`Max Tokens — ${local.maxTokens}`}>
           <input type="range" min="256" max="4096" step="256" value={local.maxTokens}
             onChange={e => setLocal(p => ({ ...p, maxTokens: parseInt(e.target.value) }))}
-            style={{ width: '100%', accentColor: 'white' }} />
+            style={{ width: '100%', accentColor: 'var(--accent)' }} />
         </SField>
+
         <button onClick={handleSave} style={{
-          padding: '11px', background: 'white', color: 'black', border: 'none',
-          borderRadius: '12px', fontSize: '12px', fontWeight: '700', cursor: 'pointer',
-          fontFamily: 'Roboto Mono, monospace', letterSpacing: '0.1em', textTransform: 'uppercase',
+          padding: '11px', background: 'var(--text)', color: 'var(--bg)',
+          border: 'none', borderRadius: '12px', fontSize: '13.5px',
+          fontWeight: '600', cursor: 'pointer', fontFamily: 'var(--font)',
+          letterSpacing: '-0.01em',
         }}>
           {saved ? '✓ Saved' : 'Save Settings'}
         </button>
@@ -341,14 +243,62 @@ function SettingsPanel({ settings, onSave, onClose, username }) {
   )
 }
 
+const sInputStyle = {
+  width: '100%', padding: '9px 12px',
+  background: 'var(--surface2)', border: '1px solid var(--border)',
+  borderRadius: '10px', color: 'var(--text)',
+  fontSize: '13px', fontFamily: 'inherit', outline: 'none',
+}
+
 function SField({ label, children }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      <label style={{ fontFamily: 'Roboto Mono, monospace', fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontWeight: '500', letterSpacing: '0.2em', textTransform: 'uppercase' }}>{label}</label>
+      <label style={{ fontSize: '11px', color: 'var(--text-3)', fontWeight: '600', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{label}</label>
       {children}
     </div>
   )
 }
+
+// ── Greeting prompts ──────────────────────────────────────────────────────────
+const PROMPTS = [
+  {
+    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l2 2"/></svg>,
+    title: 'Explain a concept',
+    sub: 'How do neural networks actually learn?',
+    text: 'Explain how neural networks learn from data',
+  },
+  {
+    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>,
+    title: 'Write some code',
+    sub: 'Build a debounce function in TypeScript',
+    text: 'Write a debounce function in TypeScript with proper typing',
+  },
+  {
+    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>,
+    title: 'Draft something',
+    sub: 'Write a polite email to decline a meeting',
+    text: 'Draft a polite email declining a meeting request while suggesting an async alternative',
+  },
+  {
+    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 1 1 7.072 0l-.548.547A3.374 3.374 0 0 0 14 18.469V19a2 2 0 1 1-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>,
+    title: 'Brainstorm ideas',
+    sub: '5 monetizable side projects for a developer',
+    text: 'Give me 5 unique side project ideas for a developer that could be monetized',
+  },
+  {
+    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
+    title: 'Compare & summarize',
+    sub: 'REST vs GraphQL: key differences?',
+    text: 'Summarize the key differences between REST and GraphQL APIs for a technical audience',
+  },
+]
+
+// ── Tools dropdown (portal) ───────────────────────────────────────────────────
+const TOOL_OPTIONS = [
+  { id: 'web', label: 'Search the web' },
+  { id: 'think', label: 'Think step by step' },
+  { id: 'research', label: 'Deep research' },
+]
 
 // ── Main App ──────────────────────────────────────────────────────────────────
 export default function App({ user, onLogout }) {
@@ -360,17 +310,20 @@ export default function App({ user, onLogout }) {
   const [streaming, setStreaming] = useState(false)
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [showSettings, setShowSettings] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [navShrunk, setNavShrunk] = useState(false)
+  const [sidebarExpanded, setSidebarExpanded] = useState(() => localStorage.getItem('sb-expanded') === 'true')
+  const [theme, setTheme] = useState(() => localStorage.getItem('ai-theme') || 'light')
   const [loadingHistory, setLoadingHistory] = useState(true)
-  const [chatMenuOpen, setChatMenuOpen] = useState(null)
   const [renamingChatId, setRenamingChatId] = useState(null)
   const [renameValue, setRenameValue] = useState('')
-  const [showToolsPopup, setShowToolsPopup] = useState(false)
-  const [activeTools, setActiveTools] = useState([])
-  const [inputFocused, setInputFocused] = useState(false)
-  const [speakingId, setSpeakingId] = useState(null)
-  // Rate limit tracking
+  const [showToolsDD, setShowToolsDD] = useState(false)
+  const [toolsDDPos, setToolsDDPos] = useState({ x: 0, y: 0 })
+  const [modelDDOpen, setModelDDOpen] = useState(false)
+  const [showScrollBtn, setShowScrollBtn] = useState(false)
+  const [topbarScrolled, setTopbarScrolled] = useState(false)
+  const [searchFilter, setSearchFilter] = useState('')
+  const [searchVisible, setSearchVisible] = useState(false)
+
+  // Rate limit
   const msgTimestamps = useRef([])
   const [rateLimited, setRateLimited] = useState(false)
   const [rateLimitCountdown, setRateLimitCountdown] = useState(0)
@@ -378,33 +331,41 @@ export default function App({ user, onLogout }) {
   const abortRef = useRef(null)
   const bottomRef = useRef(null)
   const textareaRef = useRef(null)
-  const fileInputRef = useRef(null)
-  const plusBtnRef = useRef(null)
-  const speechRef = useRef(null)
+  const viewportRef = useRef(null)
+  const toolsBtnRef = useRef(null)
 
   const activeChat = chats.find(c => c.id === activeChatId) || null
   const messages = activeChat?.messages || []
 
-  // ── Rate limit countdown ──────────────────────────────────────────────────
+  // Apply theme
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('ai-theme', theme)
+  }, [theme])
+
+  useEffect(() => {
+    localStorage.setItem('sb-expanded', sidebarExpanded)
+    if (sidebarExpanded) setSearchVisible(true)
+    else { setSearchVisible(false); setSearchFilter('') }
+  }, [sidebarExpanded])
+
+  // Rate limit countdown
   useEffect(() => {
     if (!rateLimited) return
     const interval = setInterval(() => {
       const now = Date.now()
       const recent = msgTimestamps.current.filter(t => now - t < RATE_LIMIT.windowMs)
       msgTimestamps.current = recent
-      if (recent.length < RATE_LIMIT.max) {
-        setRateLimited(false)
-        setRateLimitCountdown(0)
-      } else {
+      if (recent.length < RATE_LIMIT.max) { setRateLimited(false); setRateLimitCountdown(0) }
+      else {
         const oldest = recent[0]
-        const remaining = Math.ceil((RATE_LIMIT.windowMs - (now - oldest)) / 1000)
-        setRateLimitCountdown(remaining)
+        setRateLimitCountdown(Math.ceil((RATE_LIMIT.windowMs - (now - oldest)) / 1000))
       }
     }, 1000)
     return () => clearInterval(interval)
   }, [rateLimited])
 
-  // ── Load history + settings ───────────────────────────────────────────────
+  // Load history + settings
   useEffect(() => {
     async function load() {
       try {
@@ -427,21 +388,30 @@ export default function App({ user, onLogout }) {
     load()
   }, [token])
 
+  // Auto-scroll to bottom
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Close tools popup on outside click
+  // Close tools dropdown on outside click
   useEffect(() => {
-    if (!showToolsPopup) return
-    const handler = (e) => {
-      if (plusBtnRef.current && !plusBtnRef.current.contains(e.target)) setShowToolsPopup(false)
+    if (!showToolsDD) return
+    const handler = e => {
+      if (toolsBtnRef.current && !toolsBtnRef.current.contains(e.target)) setShowToolsDD(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [showToolsPopup])
+  }, [showToolsDD])
 
-  // ── Persist ───────────────────────────────────────────────────────────────
+  // Close model dropdown on outside click
+  useEffect(() => {
+    if (!modelDDOpen) return
+    const handler = () => setModelDDOpen(false)
+    document.addEventListener('click', handler)
+    return () => document.removeEventListener('click', handler)
+  }, [modelDDOpen])
+
+  // Persist
   const persistChats = useCallback(async (updated) => {
     try {
       await fetch(`${WORKER_URL}/user/chats`, {
@@ -462,7 +432,7 @@ export default function App({ user, onLogout }) {
     } catch (_) {}
   }, [token])
 
-  // ── Auto-name ─────────────────────────────────────────────────────────────
+  // Auto-name
   const autoNameChat = useCallback(async (chatId, firstUserMsg, firstAiMsg) => {
     try {
       const res = await fetch(`${WORKER_URL}/ai/chat`, {
@@ -500,13 +470,12 @@ export default function App({ user, onLogout }) {
     } catch (_) {}
   }, [token, persistChats])
 
-  // ── Chat management ───────────────────────────────────────────────────────
+  // Chat management
   const newChat = () => {
     const chat = { id: genId(), title: 'New chat', messages: [], createdAt: new Date().toISOString() }
     const updated = [chat, ...chats]
     setChats(updated)
     setActiveChatId(chat.id)
-    setSidebarOpen(false)
     persistChats(updated)
   }
 
@@ -527,35 +496,14 @@ export default function App({ user, onLogout }) {
     setRenamingChatId(null)
   }
 
-  // ── TTS ───────────────────────────────────────────────────────────────────
-  const handleSpeak = (msg) => {
-    if (speakingId === msg.id) {
-      window.speechSynthesis.cancel()
-      setSpeakingId(null)
-      return
-    }
-    window.speechSynthesis.cancel()
-    const utter = new SpeechSynthesisUtterance(msg.content)
-    utter.onend = () => setSpeakingId(null)
-    utter.onerror = () => setSpeakingId(null)
-    speechRef.current = utter
-    window.speechSynthesis.speak(utter)
-    setSpeakingId(msg.id)
-  }
-
-  // ── Send message ──────────────────────────────────────────────────────────
+  // Send message
   const sendMessage = async (overrideText) => {
     const text = (overrideText || input).trim()
     if (!text || streaming) return
 
-    // Client-side rate limit
     const now = Date.now()
     const recent = msgTimestamps.current.filter(t => now - t < RATE_LIMIT.windowMs)
-    if (recent.length >= RATE_LIMIT.max) {
-      msgTimestamps.current = recent
-      setRateLimited(true)
-      return
-    }
+    if (recent.length >= RATE_LIMIT.max) { msgTimestamps.current = recent; setRateLimited(true); return }
     msgTimestamps.current = [...recent, now]
 
     let chatId = activeChatId
@@ -575,7 +523,7 @@ export default function App({ user, onLogout }) {
     setChats(prev => prev.map(c => c.id === chatId ? { ...c, messages: [...c.messages, userMsg, assistantMsg] } : c))
     setInput('')
     setStreaming(true)
-    if (textareaRef.current) textareaRef.current.style.height = 'auto'
+    if (textareaRef.current) { textareaRef.current.style.height = 'auto' }
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -595,7 +543,6 @@ export default function App({ user, onLogout }) {
         }),
         signal: controller.signal,
       })
-
       if (!res.ok) throw new Error(`Worker error: ${res.status}`)
 
       const reader = res.body.getReader()
@@ -635,7 +582,7 @@ export default function App({ user, onLogout }) {
       if (err.name === 'AbortError') {
         setChats(prev => {
           const updated = prev.map(c => c.id === chatId
-            ? { ...c, messages: c.messages.map(m => m.id === assistantMsg.id ? { ...m, content: m.content || '(stopped)', streaming: false } : m) }
+            ? { ...c, messages: c.messages.map(m => m.id === assistantMsg.id ? { ...m, content: m.content || '*(stopped)*', streaming: false } : m) }
             : c
           )
           persistChats(updated)
@@ -656,11 +603,9 @@ export default function App({ user, onLogout }) {
   const stopStreaming = () => abortRef.current?.abort()
 
   const handleRetry = (msg) => {
-    // Find the user message before this assistant message
     const idx = messages.findIndex(m => m.id === msg.id)
     if (idx > 0 && messages[idx - 1].role === 'user') {
       const userText = messages[idx - 1].content
-      // Remove the assistant message and resend
       setChats(prev => prev.map(c => c.id === activeChatId
         ? { ...c, messages: c.messages.filter(m => m.id !== msg.id) }
         : c
@@ -675,432 +620,636 @@ export default function App({ user, onLogout }) {
 
   const handleSaveSettings = (s) => { setSettings(s); persistSettings(s) }
 
-  const currentModel = MODELS.find(m => m.id === settings.model) || MODELS[0]
+  const currentModelObj = MODELS.find(m => m.id === settings.model) || MODELS[0]
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // Viewport scroll tracking
+  const handleViewportScroll = () => {
+    const vp = viewportRef.current
+    if (!vp) return
+    const dist = vp.scrollHeight - vp.scrollTop - vp.clientHeight
+    setShowScrollBtn(dist > 150 && messages.length > 0)
+    setTopbarScrolled(vp.scrollTop > 10)
+  }
+
+  const scrollToBottom = (smooth = false) => {
+    const vp = viewportRef.current
+    if (vp) vp.scrollTo({ top: vp.scrollHeight, behavior: smooth ? 'smooth' : 'instant' })
+  }
+
+  // Filtered chat history
+  const filteredChats = chats.filter(c => !searchFilter || c.title.toLowerCase().includes(searchFilter.toLowerCase()))
+  const now = Date.now()
+  const todayChats = filteredChats.filter(c => now - (c.ts || 0) < 86400000)
+  const yesterdayChats = filteredChats.filter(c => { const a = now - (c.ts || 0); return a >= 86400000 && a < 172800000 })
+  const olderChats = filteredChats.filter(c => now - (c.ts || 0) >= 172800000)
+
+  const renderHistoryGroup = (label, arr) => arr.length === 0 ? null : (
+    <>
+      <div className="sb-section-label">{label}</div>
+      {arr.map(chat => (
+        <div key={chat.id} className={`history-item${chat.id === activeChatId ? ' active' : ''}`}
+          onClick={() => { setActiveChatId(chat.id) }}>
+          <ChatBubbleSvg />
+          {renamingChatId === chat.id ? (
+            <input
+              autoFocus value={renameValue}
+              onChange={e => setRenameValue(e.target.value)}
+              onBlur={() => finishRename(chat.id)}
+              onKeyDown={e => { if (e.key === 'Enter') finishRename(chat.id); if (e.key === 'Escape') setRenamingChatId(null) }}
+              onClick={e => e.stopPropagation()}
+              style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: 'var(--text)', fontSize: '13px', fontFamily: 'var(--font)', padding: 0, width: 0 }}
+            />
+          ) : (
+            <span className="hi-title">{chat.title || 'Untitled'}</span>
+          )}
+          <button className="hi-del" onClick={e => { e.stopPropagation(); deleteChat(chat.id) }} title="Delete">
+            <XSvg />
+          </button>
+        </div>
+      ))}
+    </>
+  )
+
+  // Tools dropdown toggle
+  const toggleToolsDD = (e) => {
+    e.stopPropagation()
+    if (showToolsDD) { setShowToolsDD(false); return }
+    const rect = toolsBtnRef.current?.getBoundingClientRect()
+    if (rect) setToolsDDPos({ x: rect.left, y: rect.top - 8 })
+    setShowToolsDD(true)
+  }
+
+  const pickTool = (label) => {
+    setShowToolsDD(false)
+    const prefix = `[${label}] `
+    setInput(prev => prefix + prev)
+    textareaRef.current?.focus()
+  }
+
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
-        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
-        @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes liquidShift {
-          0%   { background-position: 0% 50%; }
-          50%  { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-        @keyframes pulseGlow {
-          0%,100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
-          50%      { box-shadow: 0 0 0 4px rgba(255,255,255,0.06); }
-        }
-        .msg-enter { animation: fadeIn 0.22s ease; }
+        @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
 
-        .app-root {
-          height: 100%;
-          background-color: #050505;
-          background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h40v40H0V0zm1 1h38v38H1V1z' fill='%23ffffff' fill-opacity='0.025' fill-rule='evenodd'/%3E%3C/svg%3E");
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
-          position: relative;
-          font-family: 'Inter', -apple-system, sans-serif;
-        }
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
-        /* Ambient glows */
-        .ambient-top {
-          position: fixed; top: -30%; left: 50%; transform: translateX(-50%);
-          width: 140vw; height: 90vw; max-height: 700px;
-          border-radius: 100%; background: rgba(255,255,255,0.065);
-          filter: blur(120px); pointer-events: none; z-index: 0;
+        :root{
+          --bg:#f7f6f3;--surface:#ffffff;--surface2:#f0ede8;--surface3:#e6e2db;
+          --border:rgba(0,0,0,0.07);--border2:rgba(0,0,0,0.04);
+          --text:#1a1714;--text-2:#6b6660;--text-3:#b0aca6;
+          --accent:#c47a3a;--accent-dim:rgba(196,122,58,0.1);
+          --user-bubble:#1a1714;--user-fg:#f7f6f3;
+          --shadow-sm:0 1px 3px rgba(0,0,0,0.05),0 1px 2px rgba(0,0,0,0.03);
+          --shadow-md:0 4px 16px rgba(0,0,0,0.07),0 2px 4px rgba(0,0,0,0.04);
+          --shadow-lg:0 12px 40px rgba(0,0,0,0.1),0 4px 8px rgba(0,0,0,0.05);
+          --sidebar-collapsed:60px;--sidebar-expanded:240px;
+          --font:'DM Sans',system-ui,sans-serif;
+          --serif:'Instrument Serif',Georgia,serif;
+          --mono:'DM Mono',ui-monospace,monospace;
+          --ease:cubic-bezier(0.4,0,0.2,1);--transition:0.2s var(--ease);
         }
-        .ambient-top-core {
-          position: fixed; top: -15%; left: 50%; transform: translateX(-50%);
-          width: 60vw; height: 40vw; max-height: 350px;
-          border-radius: 100%; background: rgba(255,255,255,0.09);
-          filter: blur(70px); pointer-events: none; z-index: 0;
-        }
-        .ambient-input {
-          position: fixed; bottom: -60px; left: 50%; transform: translateX(-50%);
-          width: 80vw; max-width: 700px; height: 220px;
-          border-radius: 100%; background: rgba(255,255,255,0.05);
-          filter: blur(60px); pointer-events: none; z-index: 0;
+        [data-theme=dark]{
+          --bg:#111009;--surface:#1c1a16;--surface2:#252219;--surface3:#312e24;
+          --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.04);
+          --text:#f2ede6;--text-2:#9a9489;--text-3:#544f49;
+          --accent:#d4935a;--accent-dim:rgba(212,147,90,0.12);
+          --user-bubble:#252219;--user-fg:#e8e2d8;
+          --shadow-sm:0 1px 3px rgba(0,0,0,0.3);
+          --shadow-md:0 4px 16px rgba(0,0,0,0.4);
+          --shadow-lg:0 12px 40px rgba(0,0,0,0.5);
         }
 
-        /* Navbar */
-        #tux-nav {
-          transition: max-width 0.6s cubic-bezier(0.22,1,0.36,1), padding 0.6s cubic-bezier(0.22,1,0.36,1), background-color 0.4s ease;
-          max-width: 520px; width: 90%;
-        }
-        #tux-nav.shrunk {
-          max-width: 64px !important; padding-left: 0 !important; padding-right: 0 !important;
-          justify-content: center !important; background-color: rgba(255,255,255,0.03) !important;
-          border-color: rgba(255,255,255,0.15) !important;
-        }
-        .nav-btn {
-          transition: all 0.5s cubic-bezier(0.22,1,0.36,1);
-          max-width: 140px; overflow: hidden; white-space: nowrap; opacity: 1;
-        }
-        .nav-btn.shrunk {
-          max-width: 0 !important; padding-left: 0 !important; padding-right: 0 !important;
-          margin-left: 0 !important; margin-right: 0 !important;
-          opacity: 0 !important; border-width: 0 !important; pointer-events: none;
-        }
+        html,body,#root{height:100%;font-family:var(--font);-webkit-font-smoothing:antialiased}
+        body{background:var(--bg);color:var(--text);overflow:hidden}
 
-        /* Sidebar */
-        .sidebar-overlay {
-          position: fixed; inset: 0; z-index: 80;
-          background: rgba(0,0,0,0.5); backdrop-filter: blur(6px);
-          opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
-        }
-        .sidebar-overlay.open { opacity: 1; pointer-events: all; }
-        .sidebar-panel {
-          position: fixed; top: 0; left: 0; bottom: 0; width: 260px; z-index: 90;
-          background: #0a0a0a; border-right: 1px solid rgba(255,255,255,0.07);
-          display: flex; flex-direction: column;
-          transform: translateX(-100%); transition: transform 0.35s cubic-bezier(0.22,1,0.36,1);
-        }
-        .sidebar-panel.open { transform: translateX(0); }
-        .chat-item:hover .del-btn { opacity: 1 !important; }
-        .chat-item:hover .menu-btn { opacity: 1 !important; }
-        .chat-menu-item {
-          display: flex; align-items: center; gap: 8px;
-          width: 100%; padding: 8px 10px; border-radius: 8px;
-          background: none; border: none; cursor: pointer;
-          color: rgba(255,255,255,0.6); font-size: 12px; font-family: inherit;
-          transition: background 0.15s; text-align: left;
-        }
-        .chat-menu-item:hover { background: rgba(255,255,255,0.07); }
-        .chat-menu-item.danger { color: rgba(255,100,100,0.7); }
-        .chat-menu-item.danger:hover { background: rgba(255,80,80,0.08); }
+        ::-webkit-scrollbar{width:4px}
+        ::-webkit-scrollbar-track{background:transparent}
+        ::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:10px}
 
-        /* Messages scroll — goes under navbar via overflow */
-        .msg-scroll { }
-        .msg-scroll::-webkit-scrollbar { width: 3px; }
-        .msg-scroll::-webkit-scrollbar-track { background: transparent; }
-        .msg-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
+        .app-shell{display:flex;height:100svh;overflow:hidden;transition:background var(--transition),color var(--transition)}
 
-        /* Liquid metal send button */
-        .liquid-btn {
-          background: linear-gradient(135deg, #d4d4d4 0%, #ffffff 25%, #a8a8a8 50%, #e8e8e8 75%, #c0c0c0 100%);
-          background-size: 300% 300%;
-          animation: liquidShift 3s ease infinite;
-          box-shadow: 0 2px 12px rgba(255,255,255,0.25), inset 0 1px 0 rgba(255,255,255,0.8), inset 0 -1px 0 rgba(0,0,0,0.15);
+        /* ── Sidebar ── */
+        #sidebar{
+          width:var(--sidebar-collapsed);background:var(--surface);
+          border-radius:16px;margin:8px 0 8px 8px;border:1px solid var(--border);
+          display:flex;flex-direction:column;align-items:center;
+          transition:width 0.28s cubic-bezier(0.4,0,0.2,1);
+          z-index:30;overflow:hidden;flex-shrink:0;position:relative;
+          box-shadow:var(--shadow-sm);
         }
-        .liquid-btn:hover {
-          box-shadow: 0 4px 20px rgba(255,255,255,0.35), inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 0 rgba(0,0,0,0.2);
-          filter: brightness(1.05);
-        }
-        .liquid-btn-inactive {
-          background: rgba(255,255,255,0.07);
-          box-shadow: none;
-        }
+        #sidebar.expanded{width:var(--sidebar-expanded)}
 
-        /* Input glow ring */
-        .input-ring {
-          border-radius: 24px;
-          transition: box-shadow 0.3s ease, border-color 0.3s ease;
+        .sb-top{
+          width:100%;display:flex;flex-direction:column;align-items:center;
+          padding:8px 0 8px;gap:2px;border-bottom:1px solid var(--border);
         }
-        .input-ring.focused {
-          box-shadow: 0 0 0 3px rgba(255,255,255,0.06), 0 0 20px rgba(255,255,255,0.04);
-          border-color: rgba(255,255,255,0.18) !important;
+        .sb-brand{
+          width:100%;display:flex;align-items:center;
+          padding:4px 14px;margin-bottom:2px;min-height:40px;
         }
+        .sb-brand-name{
+          font-size:15px;font-weight:600;color:var(--text);letter-spacing:-0.02em;
+          opacity:0;width:0;overflow:hidden;white-space:nowrap;margin-left:0;
+          transition:opacity 0.15s var(--ease),width 0.28s var(--ease),margin-left 0.28s var(--ease);
+        }
+        #sidebar.expanded .sb-brand-name{opacity:1;width:auto;margin-left:10px;}
 
-        /* Active tool pill */
-        .tool-pill {
-          display: inline-flex; align-items: center; gap: 4px;
-          padding: 3px 8px; border-radius: 6px;
-          background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
-          font-size: 11px; color: rgba(255,255,255,0.6);
-          font-family: 'Roboto Mono', monospace;
+        .sb-btn{
+          width:calc(100% - 16px);min-height:36px;display:flex;align-items:center;
+          padding:0 10px;border-radius:10px;border:none;background:none;cursor:pointer;
+          color:var(--text-2);transition:background var(--transition),color var(--transition);
+          position:relative;flex-shrink:0;
+        }
+        .sb-btn:hover{background:var(--surface2);color:var(--text)}
+        .sb-btn svg{width:17px;height:17px;flex-shrink:0}
+
+        #sidebar:not(.expanded) .sb-btn[data-tip]::after{
+          content:attr(data-tip);position:absolute;left:calc(100% + 10px);top:50%;transform:translateY(-50%);
+          background:var(--text);color:var(--bg);font-size:12px;padding:4px 9px;border-radius:7px;
+          white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 0.12s;z-index:200;
+          font-family:var(--font);
+        }
+        #sidebar:not(.expanded) .sb-btn[data-tip]:hover::after{opacity:1}
+
+        .sb-toggle{
+          margin-top:auto;width:calc(100% - 16px);min-height:36px;
+          display:flex;align-items:center;padding:0 10px;border-radius:10px;
+          border:none;background:none;cursor:pointer;color:var(--text-3);
+          transition:background var(--transition),color var(--transition);margin-bottom:8px;flex-shrink:0;
+        }
+        .sb-toggle:hover{background:var(--surface2);color:var(--text-2)}
+        .sb-toggle svg{width:16px;height:16px;flex-shrink:0;transition:transform 0.28s var(--ease)}
+        #sidebar.expanded .sb-toggle svg.chevron{transform:rotate(180deg)}
+        .sb-toggle-label{
+          font-size:12.5px;color:var(--text-3);opacity:0;width:0;margin-left:0;white-space:nowrap;
+          transition:opacity 0.15s var(--ease),width 0.28s var(--ease),margin-left 0.28s var(--ease);
+        }
+        #sidebar.expanded .sb-toggle-label{opacity:1;width:auto;margin-left:10px;}
+
+        .sb-history{flex:1;width:100%;overflow:hidden;display:flex;flex-direction:column;}
+        .sb-history-inner{flex:1;overflow-y:auto;overflow-x:hidden;padding:6px 8px;}
+
+        .sb-section-label{
+          font-size:10.5px;font-weight:600;color:var(--text-3);
+          padding:8px 10px 4px;letter-spacing:0.08em;text-transform:uppercase;
+          white-space:nowrap;overflow:hidden;opacity:0;
+          transition:opacity 0.15s var(--ease);pointer-events:none;
+        }
+        #sidebar.expanded .sb-section-label{opacity:1;pointer-events:auto;}
+
+        .history-item{
+          width:100%;display:flex;align-items:center;padding:6px 10px;border-radius:8px;
+          cursor:pointer;color:var(--text-2);transition:background var(--transition),color var(--transition);
+          gap:8px;position:relative;white-space:nowrap;overflow:hidden;
+        }
+        .history-item:hover{background:var(--surface2);color:var(--text)}
+        .history-item.active{background:var(--surface2);color:var(--text);font-weight:500}
+        .history-item svg{width:14px;height:14px;flex-shrink:0;opacity:0.45}
+        .hi-title{font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;opacity:0;width:0;transition:opacity 0.15s var(--ease),width 0.28s var(--ease);}
+        #sidebar.expanded .hi-title{opacity:1;width:auto;}
+        .hi-del{width:20px;height:20px;border:none;background:none;cursor:pointer;border-radius:5px;display:none;align-items:center;justify-content:center;color:var(--text-3);flex-shrink:0;}
+        #sidebar.expanded .history-item:hover .hi-del{display:flex}
+        .hi-del:hover{background:var(--surface3);color:var(--text-2)}
+
+        /* ── Main ── */
+        #main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;min-width:0}
+
+        /* ── Topbar ── */
+        #topbar{
+          display:flex;align-items:center;gap:6px;padding:10px 16px;
+          position:absolute;top:0;left:0;right:0;z-index:10;background:var(--bg);
+          border-bottom:1px solid transparent;
+          transition:border-color var(--transition),background var(--transition);
+        }
+        #topbar.scrolled{border-color:var(--border)}
+        .topbar-center{flex:1;display:flex;justify-content:center}
+        .model-btn{
+          display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500;color:var(--text-2);
+          padding:5px 10px;border-radius:9px;border:1px solid transparent;background:none;cursor:pointer;
+          transition:background var(--transition),border-color var(--transition),color var(--transition);
+          letter-spacing:-0.01em;position:relative;
+        }
+        .model-btn:hover{background:var(--surface);border-color:var(--border);color:var(--text)}
+        .model-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0}
+        .topbar-r{display:flex;align-items:center;gap:4px}
+        .icon-btn{
+          width:32px;height:32px;border:none;background:none;cursor:pointer;
+          border-radius:8px;display:flex;align-items:center;justify-content:center;
+          color:var(--text-2);transition:background var(--transition),color var(--transition);
+        }
+        .icon-btn:hover{background:var(--surface2);color:var(--text)}
+        .icon-btn svg{width:16px;height:16px}
+
+        /* Model dropdown */
+        .model-dropdown{
+          position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);
+          background:var(--surface);border:1px solid var(--border);border-radius:13px;
+          box-shadow:var(--shadow-lg);min-width:220px;padding:5px;z-index:200;
+          animation:dropIn 0.15s ease;
+        }
+        @keyframes dropIn{from{opacity:0;transform:translateX(-50%) translateY(-6px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+        .mdl-item{
+          display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;
+          font-size:13.5px;color:var(--text-2);transition:background var(--transition),color var(--transition);
+        }
+        .mdl-item:hover{background:var(--surface2);color:var(--text)}
+        .mdl-item.selected{color:var(--text);font-weight:500}
+        .mdl-item .mdl-dot{width:8px;height:8px;border-radius:50%;background:var(--surface3);flex-shrink:0}
+        .mdl-item.selected .mdl-dot{background:var(--accent)}
+        .mdl-badge{margin-left:auto;font-size:10.5px;font-weight:500;background:var(--surface2);color:var(--text-3);padding:2px 7px;border-radius:5px}
+
+        /* ── Viewport ── */
+        #viewport{flex:1;overflow-y:auto;padding:56px 0 0;display:flex;flex-direction:column;}
+
+        /* ── Empty / Greeting ── */
+        .empty-state{
+          flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+          padding:0 20px 100px;
+        }
+        .greeting-label{
+          font-size:11px;font-weight:600;color:var(--text-3);letter-spacing:0.12em;
+          text-transform:uppercase;margin-bottom:14px;
+          animation:fadeUp 0.5s both 0.05s;
+        }
+        .greeting-title{
+          font-family:var(--serif);font-size:38px;color:var(--text);
+          letter-spacing:-0.01em;line-height:1.15;text-align:center;margin-bottom:8px;
+          animation:fadeUp 0.5s both 0.1s;
+        }
+        .greeting-title em{font-style:italic;color:var(--accent)}
+        .greeting-sub{
+          font-size:15px;color:var(--text-2);margin-bottom:40px;text-align:center;
+          line-height:1.55;max-width:340px;animation:fadeUp 0.5s both 0.15s;
+        }
+        .prompts-list{
+          display:flex;flex-direction:column;gap:8px;width:100%;max-width:520px;
+          animation:fadeUp 0.5s both 0.2s;
+        }
+        .prompt-card{
+          display:flex;align-items:center;gap:14px;padding:13px 16px;border-radius:13px;cursor:pointer;
+          background:var(--surface);border:1px solid var(--border);
+          transition:background var(--transition),border-color var(--transition),transform var(--transition),box-shadow var(--transition);
+          box-shadow:var(--shadow-sm);text-align:left;
+        }
+        .prompt-card:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:var(--shadow-md);}
+        .prompt-icon{
+          width:34px;height:34px;border-radius:9px;background:var(--surface2);
+          display:flex;align-items:center;justify-content:center;flex-shrink:0;
+          transition:background var(--transition);
+        }
+        .prompt-card:hover .prompt-icon{background:var(--accent-dim)}
+        .prompt-icon svg{color:var(--text-2);transition:color var(--transition)}
+        .prompt-card:hover .prompt-icon svg{color:var(--accent)}
+        .prompt-text strong{display:block;font-size:14px;font-weight:500;color:var(--text);margin-bottom:2px}
+        .prompt-text span{font-size:12.5px;color:var(--text-2)}
+        .prompt-arrow{margin-left:auto;color:var(--text-3);opacity:0;transform:translateX(-4px);transition:opacity var(--transition),transform var(--transition)}
+        .prompt-card:hover .prompt-arrow{opacity:1;transform:translateX(0)}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+        /* ── Messages ── */
+        .msg-row{width:100%;max-width:680px;margin:0 auto;padding:6px 20px;}
+        .msg-row.anim-in{animation:msgIn 0.22s cubic-bezier(0.34,1.2,0.64,1) both}
+        @keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+        .user-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+        .user-bubble{
+          background:var(--user-bubble);color:var(--user-fg);
+          border-radius:18px 18px 4px 18px;padding:11px 16px;max-width:80%;
+          font-size:15px;line-height:1.6;word-break:break-word;box-shadow:var(--shadow-sm);
+          white-space:pre-wrap;
+        }
+        .user-meta{display:flex;gap:3px;opacity:0;transition:opacity var(--transition)}
+        .user-wrap:hover .user-meta{opacity:1}
+
+        .asst-wrap{display:flex;gap:12px;align-items:flex-start}
+        .asst-av{
+          width:28px;height:28px;border-radius:8px;flex-shrink:0;margin-top:2px;
+          background:var(--text);display:flex;align-items:center;justify-content:center;
+        }
+        .asst-av svg{color:var(--bg)}
+        .asst-body{flex:1;min-width:0}
+        .asst-text{font-size:15.5px;line-height:1.8;color:var(--text);word-break:break-word}
+        .asst-text p{margin-bottom:0.9em}.asst-text p:last-child{margin-bottom:0}
+        .asst-text h1,.asst-text h2,.asst-text h3{font-weight:600;letter-spacing:-0.01em;margin:1.2em 0 0.45em;color:var(--text)}
+        .asst-text h1{font-size:20px}.asst-text h2{font-size:18px}.asst-text h3{font-size:16px}
+        .asst-text strong{font-weight:600}
+        .asst-text em{font-style:italic;color:var(--text-2)}
+        .asst-text code{font-family:var(--mono);font-size:13px;background:var(--surface2);padding:2px 6px;border-radius:5px;border:1px solid var(--border);color:var(--accent)}
+        .code-block{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin:12px 0;box-shadow:var(--shadow-sm)}
+        .code-header{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:var(--surface2);border-bottom:1px solid var(--border)}
+        .code-lang{font-family:var(--mono);font-size:11px;color:var(--text-3);font-weight:500;text-transform:uppercase;letter-spacing:0.06em}
+        .copy-code-btn{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text-2);background:none;border:none;cursor:pointer;border-radius:5px;padding:2px 7px;transition:background var(--transition),color var(--transition);font-family:var(--font)}
+        .copy-code-btn:hover{background:var(--surface3);color:var(--text)}
+        .asst-text pre code{display:block;padding:14px 16px;font-family:var(--mono);font-size:13px;line-height:1.75;background:none;border:none;color:var(--text-2);overflow-x:auto}
+        .asst-text ul,.asst-text ol{padding-left:1.4em;margin-bottom:0.9em}
+        .asst-text li{margin-bottom:0.35em;line-height:1.7}
+        .asst-text blockquote{border-left:2px solid var(--accent);padding:8px 14px;margin:12px 0;background:var(--accent-dim);border-radius:0 8px 8px 0;color:var(--text-2)}
+        .asst-text hr{border:none;border-top:1px solid var(--border);margin:18px 0}
+        .asst-text a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent;transition:border-color var(--transition)}
+        .asst-text a:hover{border-color:var(--accent)}
+        .asst-text table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+        .asst-text th,.asst-text td{padding:9px 13px;border:1px solid var(--border);text-align:left}
+        .asst-text th{background:var(--surface2);font-weight:500;font-size:13px}
+        .asst-text tr:nth-child(even) td{background:var(--surface2)}
+
+        .asst-meta{display:flex;align-items:center;gap:2px;padding-top:8px;opacity:0;transition:opacity var(--transition)}
+        .asst-wrap:hover .asst-meta{opacity:1}
+
+        .act{width:28px;height:28px;border:none;background:none;cursor:pointer;border-radius:7px;display:flex;align-items:center;justify-content:center;color:var(--text-3);transition:background var(--transition),color var(--transition);position:relative}
+        .act:hover{background:var(--surface2);color:var(--text-2)}
+        .act svg{width:13px;height:13px}
+        .act[data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);font-size:11px;white-space:nowrap;padding:3px 8px;border-radius:5px;pointer-events:none;opacity:0;transition:opacity 0.12s;z-index:50;font-family:var(--font)}
+        .act:hover[data-tip]::after{opacity:1}
+
+        .typing{display:flex;gap:5px;align-items:center;padding:12px 0 6px}
+        .typing-dot{width:6px;height:6px;border-radius:50%;background:var(--text-3);animation:typingDot 1.4s ease-in-out infinite}
+        .typing-dot:nth-child(2){animation-delay:.15s}.typing-dot:nth-child(3){animation-delay:.3s}
+        @keyframes typingDot{0%,80%,100%{transform:scale(0.6);opacity:0.3}40%{transform:scale(1);opacity:1}}
+
+        .cur{display:inline-block;width:1.5px;height:16px;background:var(--text);border-radius:1px;animation:curBlink 0.9s steps(1) infinite;vertical-align:text-bottom;margin-left:2px}
+        @keyframes curBlink{0%,100%{opacity:1}50%{opacity:0}}
+
+        /* ── Composer ── */
+        #footer-anchor{position:sticky;bottom:0;background:linear-gradient(to top,var(--bg) 75%,transparent);padding:12px 20px 18px;z-index:5;}
+        .footer-inner{max-width:680px;margin:0 auto;position:relative}
+
+        .scroll-btn{
+          display:none;position:absolute;top:-52px;left:50%;transform:translateX(-50%);
+          width:30px;height:30px;border-radius:50%;border:1px solid var(--border);
+          background:var(--surface);box-shadow:var(--shadow-md);cursor:pointer;color:var(--text-2);
+          align-items:center;justify-content:center;transition:background var(--transition);
+        }
+        .scroll-btn.visible{display:flex}
+        .scroll-btn:hover{background:var(--surface2)}
+
+        #composer{
+          background:var(--surface);border:1px solid var(--border);border-radius:20px;
+          box-shadow:var(--shadow-md);
+          transition:box-shadow 0.25s var(--ease),border-color 0.25s var(--ease);overflow:hidden;
+        }
+        #composer:focus-within{
+          box-shadow:var(--shadow-lg),0 0 0 3px var(--accent-dim);
+          border-color:rgba(196,122,58,0.25);
+        }
+        .composer-top{display:flex;align-items:flex-end;gap:10px;padding:14px 14px 10px 18px;}
+        #msg-input{
+          flex:1;border:none;background:none;font:inherit;font-size:15.5px;line-height:1.55;
+          color:var(--text);outline:none;resize:none;max-height:180px;overflow-y:auto;min-height:24px;padding:0;
+        }
+        #msg-input::placeholder{color:var(--text-3)}
+        .composer-bottom{display:flex;align-items:center;justify-content:space-between;padding:8px 12px 12px;}
+        .composer-left{display:flex;align-items:center;gap:6px}
+        .composer-right{display:flex;align-items:center;gap:8px}
+
+        .pill-btn{
+          display:flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:20px;
+          padding:5px 11px;font-size:12.5px;font-weight:500;color:var(--text-2);background:none;cursor:pointer;
+          transition:background var(--transition),border-color var(--transition),color var(--transition);
+        }
+        .pill-btn:hover{background:var(--surface2);color:var(--text)}
+        .pill-btn svg{width:13px;height:13px}
+
+        .send-btn{
+          width:36px;height:36px;border-radius:12px;border:none;cursor:pointer;
+          background:var(--text);color:var(--bg);display:flex;align-items:center;justify-content:center;
+          transition:opacity var(--transition),transform var(--transition);
+        }
+        .send-btn:not(:disabled):hover{opacity:0.82;transform:scale(1.05)}
+        .send-btn:disabled{opacity:0.16;cursor:not-allowed}
+        .stop-btn{
+          width:36px;height:36px;border-radius:12px;border:1px solid var(--border);cursor:pointer;
+          background:var(--surface2);color:var(--text-2);display:flex;align-items:center;justify-content:center;
+          transition:background var(--transition);
+        }
+        .stop-btn:hover{background:var(--surface3);color:var(--text)}
+
+        /* Tools portal */
+        .tools-portal{
+          position:fixed;background:var(--surface);border:1px solid var(--border);
+          border-radius:14px;box-shadow:var(--shadow-lg);min-width:210px;padding:5px;
+          z-index:9999;animation:dropUp 0.15s ease;transform:translateY(-100%);
+        }
+        @keyframes dropUp{from{opacity:0;transform:translateY(calc(-100% + 6px))}to{opacity:1;transform:translateY(-100%)}}
+        .tool-dd-item{
+          display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;cursor:pointer;
+          font-size:13.5px;color:var(--text-2);transition:background var(--transition);
+        }
+        .tool-dd-item:hover{background:var(--surface2);color:var(--text)}
+
+        /* Rate limit */
+        .rate-limit-msg{text-align:center;margin-bottom:8px;font-size:12px;color:#d97706;font-family:var(--mono)}
+
+        /* Mobile */
+        @media(max-width:640px){
+          #sidebar{position:fixed;left:8px;top:8px;height:calc(100% - 16px);z-index:50;transform:translateX(calc(-100% - 16px))}
+          #sidebar.mobile-open{transform:translateX(0)}
+          .msg-row{padding:5px 14px}
+          .greeting-title{font-size:28px}
         }
       `}</style>
 
-      <div className="ambient-top" />
-      <div className="ambient-top-core" />
-      <div className="ambient-input" />
-
-      <div className="app-root">
-
-        {/* ── Floating Navbar ── */}
-        <div style={{
-          position: 'fixed', top: '20px', left: 0, right: 0,
-          display: 'flex', justifyContent: 'center', zIndex: 100, pointerEvents: 'none',
-        }}>
-          <nav id="tux-nav"
-            style={{
-              pointerEvents: 'all', height: '52px',
-              background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '16px', padding: '0 10px',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
-            }}
-            className={navShrunk ? 'shrunk' : ''}
-          >
-            <button className={`nav-btn${navShrunk ? ' shrunk' : ''}`} onClick={() => setSidebarOpen(true)} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              padding: '8px 14px', borderRadius: '10px',
-              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.05)',
-              cursor: 'pointer', color: 'rgba(245,245,245,0.9)',
-            }}>
-              <span style={{ fontFamily: 'Roboto Mono, monospace', fontSize: '10px', fontWeight: '600', letterSpacing: '0.2em' }}>CHAT</span>
-            </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <button className={`nav-btn${navShrunk ? ' shrunk' : ''}`} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: '8px 14px', borderRadius: '10px',
-                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.05)',
-                cursor: 'pointer', color: 'rgba(224,224,224,0.5)',
-              }}>
-                <span style={{ fontFamily: 'Roboto Mono, monospace', fontSize: '10px', fontWeight: '600', letterSpacing: '0.2em' }}>AGENT</span>
-              </button>
-              <button onClick={() => setNavShrunk(p => !p)} style={{
-                width: '36px', height: '36px', borderRadius: '10px', flexShrink: 0,
-                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.05)',
-                cursor: 'pointer', color: 'rgba(200,200,200,0.7)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <span style={{ display: 'flex', transform: navShrunk ? 'rotate(90deg) scale(0.85)' : 'rotate(0deg) scale(1)', transition: 'transform 0.5s cubic-bezier(0.22,1,0.36,1)' }}>
-                  <Icon.Grid />
-                </span>
-              </button>
-            </div>
-          </nav>
-        </div>
+      <div className="app-shell">
 
         {/* ── Sidebar ── */}
-        <div className={`sidebar-overlay${sidebarOpen ? ' open' : ''}`} onClick={() => setSidebarOpen(false)} />
-        <div className={`sidebar-panel${sidebarOpen ? ' open' : ''}`}>
-          <div style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ fontFamily: 'Roboto Mono, monospace', fontSize: '10px', fontWeight: '600', letterSpacing: '0.2em', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' }}>Chats</span>
-              <button onClick={() => setSidebarOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', display: 'flex', padding: '4px' }}><Icon.Close /></button>
+        <aside id={`sidebar${sidebarExpanded ? ' expanded' : ''}`} className={sidebarExpanded ? 'expanded' : ''} style={{ width: sidebarExpanded ? 'var(--sidebar-expanded)' : 'var(--sidebar-collapsed)' }}>
+          <div className="sb-top">
+            <div className="sb-brand">
+              <button
+                className="sb-btn"
+                onClick={() => setSidebarExpanded(p => !p)}
+                title="Toggle sidebar"
+                style={{ width: '32px', height: '32px', minHeight: 'unset', padding: 0, justifyContent: 'center', flexShrink: 0, borderRadius: '9px' }}
+              >
+                <HamburgerSvg />
+              </button>
+              <span className="sb-brand-name">AI Chat</span>
             </div>
-            <button onClick={newChat} style={{
-              display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 12px', borderRadius: '10px',
-              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)',
-              color: 'rgba(255,255,255,0.7)', fontSize: '13px', fontWeight: '500',
-              cursor: 'pointer', fontFamily: 'inherit', width: '100%', marginBottom: '8px',
-            }}>
-              <Icon.Plus /> New chat
+
+            <button className="sb-btn" onClick={newChat} data-tip="New chat" title="New chat">
+              <PlusSvg />
+              <span className="sb-label" style={{ fontSize: '13px', color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', opacity: sidebarExpanded ? 1 : 0, width: sidebarExpanded ? 'auto' : 0, marginLeft: sidebarExpanded ? '10px' : 0, transition: 'opacity 0.15s var(--ease),width 0.28s var(--ease),margin-left 0.28s var(--ease)', pointerEvents: 'none' }}>New chat</span>
             </button>
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              {loadingHistory
-                ? <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.2)', padding: '8px 4px', fontFamily: 'Roboto Mono, monospace' }}>Loading…</p>
-                : chats.length === 0
-                  ? <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.2)', padding: '8px 4px' }}>No chats yet.</p>
-                  : chats.map(chat => (
-                    <div key={chat.id} className="chat-item" style={{ position: 'relative' }}>
-                      {renamingChatId === chat.id ? (
-                        <input
-                          autoFocus value={renameValue}
-                          onChange={e => setRenameValue(e.target.value)}
-                          onBlur={() => finishRename(chat.id)}
-                          onKeyDown={e => { if (e.key === 'Enter') finishRename(chat.id); if (e.key === 'Escape') setRenamingChatId(null) }}
-                          style={{ ...inputStyle, fontSize: '13px', padding: '7px 10px', borderRadius: '9px', width: '100%' }}
-                        />
-                      ) : (
-                        <>
-                          <div onClick={() => { setActiveChatId(chat.id); setSidebarOpen(false) }} style={{
-                            display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 10px',
-                            borderRadius: '10px', cursor: 'pointer',
-                            background: chat.id === activeChatId ? 'rgba(255,255,255,0.07)' : 'transparent',
-                            border: '1px solid', borderColor: chat.id === activeChatId ? 'rgba(255,255,255,0.1)' : 'transparent',
-                          }}>
-                            <span style={{ color: 'rgba(255,255,255,0.25)', flexShrink: 0 }}><Icon.Chat /></span>
-                            <span style={{ fontSize: '13px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: chat.id === activeChatId ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.45)', fontWeight: '300' }}>
-                              {chat.title || 'Untitled'}
-                            </span>
-                            <button className="menu-btn" onClick={e => { e.stopPropagation(); setChatMenuOpen(chatMenuOpen === chat.id ? null : chat.id) }} style={{ opacity: 0, background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', padding: '2px', display: 'flex', flexShrink: 0, transition: 'opacity 0.15s' }}>
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
-                            </button>
-                          </div>
-                          {chatMenuOpen === chat.id && (
-                            <div style={{ position: 'absolute', right: '4px', top: '100%', zIndex: 10, background: 'rgba(14,14,14,0.98)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '6px', minWidth: '140px', backdropFilter: 'blur(20px)', boxShadow: '0 12px 30px rgba(0,0,0,0.6)' }}>
-                              <button className="chat-menu-item" onClick={() => { setRenamingChatId(chat.id); setRenameValue(chat.title || ''); setChatMenuOpen(null) }}>
-                                <Icon.Pencil /> Rename
-                              </button>
-                              <button className="chat-menu-item danger" onClick={() => { deleteChat(chat.id); setChatMenuOpen(null) }}>
-                                <Icon.Trash /> Delete
-                              </button>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  ))
-              }
-            </div>
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: 'rgba(255,255,255,0.5)', fontWeight: '600', fontFamily: 'Roboto Mono, monospace' }}>
-                {username[0].toUpperCase()}
-              </div>
-              <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: '300' }}>{username}</span>
-              <button onClick={() => { setShowSettings(true); setSidebarOpen(false) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.25)', padding: '4px', display: 'flex' }}><Icon.Settings /></button>
-              <button onClick={onLogout} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.25)', padding: '4px', display: 'flex' }}><Icon.Logout /></button>
-            </div>
-          </div>
-        </div>
 
-        {/* ── Main chat area ── */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
+            <button className="sb-btn" onClick={() => { if (!sidebarExpanded) setSidebarExpanded(true); setTimeout(() => document.getElementById('sb-search')?.focus(), 300) }} data-tip="Search" title="Search">
+              <SearchSvg />
+              <span className="sb-label" style={{ fontSize: '13px', color: 'var(--text-2)', whiteSpace: 'nowrap', overflow: 'hidden', opacity: sidebarExpanded ? 1 : 0, width: sidebarExpanded ? 'auto' : 0, marginLeft: sidebarExpanded ? '10px' : 0, transition: 'opacity 0.15s var(--ease),width 0.28s var(--ease),margin-left 0.28s var(--ease)', pointerEvents: 'none' }}>Search</span>
+            </button>
 
-          {/* Messages — scroll under the navbar with top padding, blurred by navbar backdrop */}
-          <div className="msg-scroll" style={{ flex: 1, overflowY: 'auto', padding: '0 24px' }}>
-            {/* Padding so first message starts below navbar */}
-            <div style={{ height: '100px' }} />
-
-            {/* Model selector */}
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <select value={settings.model} onChange={e => { const s = { ...settings, model: e.target.value }; setSettings(s); persistSettings(s) }}
-                  style={{ appearance: 'none', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: 'rgba(255,255,255,0.32)', fontSize: '11px', padding: '5px 24px 5px 10px', cursor: 'pointer', fontFamily: 'Roboto Mono, monospace', outline: 'none', letterSpacing: '0.05em' }}>
-                  {MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-                </select>
-                <span style={{ position: 'absolute', right: '7px', pointerEvents: 'none', color: 'rgba(255,255,255,0.25)' }}><Icon.ChevronDown /></span>
-              </div>
-            </div>
-
-            <div style={{ maxWidth: '720px', margin: '0 auto' }}>
-              {messages.length === 0 ? (
-                <div style={{ paddingTop: '60px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', opacity: 0.2 }}>
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'white' }}>
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                  </svg>
-                  <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', fontFamily: 'Roboto Mono, monospace', letterSpacing: '0.12em' }}>START A CONVERSATION</p>
+            {sidebarExpanded && (
+              <div style={{ width: 'calc(100% - 16px)', padding: '0 2px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--surface2)', borderRadius: '9px', padding: '7px 10px', border: '1px solid var(--border2)' }}>
+                  <SearchSvg />
+                  <input id="sb-search" type="text" placeholder="Search chats…" value={searchFilter} onChange={e => setSearchFilter(e.target.value)}
+                    style={{ border: 'none', background: 'none', font: 'inherit', fontSize: '13px', color: 'var(--text)', outline: 'none', width: '100%' }} />
                 </div>
+              </div>
+            )}
+          </div>
+
+          <div className="sb-history">
+            <div className="sb-history-inner">
+              {loadingHistory ? (
+                <div style={{ padding: '20px 14px', textAlign: 'center', fontSize: '13px', color: 'var(--text-3)' }}>Loading…</div>
+              ) : filteredChats.length === 0 ? (
+                <div style={{ padding: '20px 14px', textAlign: 'center', fontSize: '13px', color: 'var(--text-3)' }}>{searchFilter ? 'No results' : 'No chats yet'}</div>
               ) : (
-                messages.map(msg => (
-                  <Message key={msg.id} msg={msg}
-                    onRetry={handleRetry} onSpeak={handleSpeak} speakingId={speakingId}
-                  />
-                ))
+                <>
+                  {renderHistoryGroup('Today', todayChats)}
+                  {renderHistoryGroup('Yesterday', yesterdayChats)}
+                  {renderHistoryGroup('Older', olderChats)}
+                  {todayChats.length === 0 && yesterdayChats.length === 0 && olderChats.length === 0 && renderHistoryGroup('', filteredChats)}
+                </>
               )}
-              <div ref={bottomRef} style={{ height: '16px' }} />
             </div>
           </div>
 
-          {/* ── Input area ── */}
-          <div style={{ padding: '10px 20px 20px', flexShrink: 0, position: 'relative', zIndex: 2 }}>
-            {/* Gradient strip */}
-            <div style={{
-              position: 'absolute', bottom: 0, left: 0, right: 0, height: '2px',
-              background: 'linear-gradient(90deg, transparent 0%, rgba(120,140,255,0.5) 30%, rgba(180,130,255,0.6) 60%, rgba(100,180,255,0.4) 85%, transparent 100%)',
-            }} />
+          <button className="sb-toggle" onClick={() => setSidebarExpanded(p => !p)} title="Toggle sidebar">
+            <ChevronRightSvg className="chevron" style={{ transform: sidebarExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.28s var(--ease)' }} />
+            <span className="sb-toggle-label">Collapse</span>
+          </button>
+        </aside>
 
-            <div style={{ maxWidth: '720px', margin: '0 auto' }}>
-
-              {/* Rate limit warning */}
-              {rateLimited && (
-                <div style={{ textAlign: 'center', marginBottom: '8px', fontFamily: 'Roboto Mono, monospace', fontSize: '11px', color: 'rgba(255,160,80,0.8)', letterSpacing: '0.06em' }}>
-                  Rate limit reached — wait {rateLimitCountdown}s
-                </div>
+        {/* ── Main ── */}
+        <main id="main">
+          {/* Topbar */}
+          <div id="topbar" className={topbarScrolled ? 'scrolled' : ''}>
+            <div className="topbar-center">
+              <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
+                <button className="model-btn" onClick={e => { e.stopPropagation(); setModelDDOpen(p => !p) }}>
+                  <span className="model-dot" />
+                  <span>{currentModelObj.label}</span>
+                  <ChevronDownFull style={{ transform: modelDDOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                </button>
+                {modelDDOpen && (
+                  <div className="model-dropdown">
+                    {MODELS.map(m => (
+                      <div key={m.id} className={`mdl-item${m.id === settings.model ? ' selected' : ''}`}
+                        onClick={() => { setSettings(s => ({ ...s, model: m.id })); persistSettings({ ...settings, model: m.id }); setModelDDOpen(false) }}>
+                        <span className="mdl-dot" />
+                        {m.label}
+                        {m.tag && <span className="mdl-badge">{m.tag}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="topbar-r">
+              <button className="icon-btn" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} title="Toggle theme">
+                {theme === 'dark' ? <MoonSvg /> : <SunSvg />}
+              </button>
+              <button className="icon-btn" onClick={() => setShowSettings(true)} title="Settings">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              </button>
+              {onLogout && (
+                <button className="icon-btn" onClick={onLogout} title="Sign out">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                </button>
               )}
+            </div>
+          </div>
 
-              {/* Active tool pills */}
-              {activeTools.length > 0 && (
-                <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                  {activeTools.map(t => (
-                    <span key={t} className="tool-pill">
-                      {t}
-                      <button onClick={() => setActiveTools(p => p.filter(x => x !== t))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.35)', padding: '0', marginLeft: '2px', display: 'flex', lineHeight: 1 }}>×</button>
-                    </span>
+          {/* Viewport */}
+          <div id="viewport" ref={viewportRef} onScroll={handleViewportScroll}>
+            {messages.length === 0 ? (
+              <div className="empty-state">
+                <p className="greeting-label">Your AI assistant</p>
+                <h1 className="greeting-title">Hello, <em>what's on<br />your mind?</em></h1>
+                <p className="greeting-sub">Ask me anything — I can write, reason, code, and help you think through any problem.</p>
+                <div className="prompts-list">
+                  {PROMPTS.map(p => (
+                    <div key={p.title} className="prompt-card" onClick={() => { setInput(p.text); textareaRef.current?.focus() }}>
+                      <div className="prompt-icon">{p.icon}</div>
+                      <div className="prompt-text">
+                        <strong>{p.title}</strong>
+                        <span>{p.sub}</span>
+                      </div>
+                      <span className="prompt-arrow"><ArrowRightSvg /></span>
+                    </div>
                   ))}
                 </div>
-              )}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {messages.map(msg => (
+                  <Message key={msg.id} msg={msg} onRetry={handleRetry} />
+                ))}
+              </div>
+            )}
+            <div style={{ flex: 1, minHeight: '8px' }} />
 
-              {/* Input bar */}
-              <div ref={plusBtnRef} style={{ position: 'relative' }}>
-                {showToolsPopup && (
-                  <ToolsPopup
-                    onSelect={id => {
-                      if (id === 'image') { fileInputRef.current?.click(); return }
-                      setActiveTools(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
-                    }}
-                    onClose={() => setShowToolsPopup(false)}
-                  />
+            {/* Footer */}
+            <div id="footer-anchor">
+              <div className="footer-inner">
+                <button className={`scroll-btn${showScrollBtn ? ' visible' : ''}`} onClick={() => scrollToBottom(true)}>
+                  <ScrollDownSvg />
+                </button>
+
+                {rateLimited && (
+                  <div className="rate-limit-msg">Rate limit reached — wait {rateLimitCountdown}s</div>
                 )}
 
-                <div
-                  className={`input-ring${inputFocused ? ' focused' : ''}`}
-                  style={{
-                    display: 'flex', gap: '8px', alignItems: 'flex-end',
-                    background: 'rgba(255,255,255,0.04)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    padding: '8px 8px 8px 6px',
-                    backdropFilter: 'blur(20px)',
-                  }}
-                >
-                  {/* Plus button */}
-                  <button
-                    onClick={() => setShowToolsPopup(p => !p)}
-                    style={{
-                      width: '34px', height: '34px', borderRadius: '50%', flexShrink: 0,
-                      background: showToolsPopup ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.06)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      color: 'rgba(255,255,255,0.5)', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'all 0.2s', alignSelf: 'flex-end', marginBottom: '1px',
-                    }}
-                    title="Attach / Tools"
-                  >
-                    <Icon.Plus />
-                  </button>
-
-                  {/* Textarea */}
-                  <textarea
-                    ref={textareaRef}
-                    value={input}
-                    onChange={e => {
-                      setInput(e.target.value)
-                      e.target.style.height = 'auto'
-                      e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px'
-                    }}
-                    onKeyDown={handleKeyDown}
-                    onFocus={() => setInputFocused(true)}
-                    onBlur={() => setInputFocused(false)}
-                    placeholder="Message…"
-                    rows={1}
-                    style={{
-                      flex: 1, background: 'none', border: 'none', outline: 'none',
-                      color: 'rgba(255,255,255,0.88)', fontSize: '14px', fontFamily: 'inherit',
-                      resize: 'none', lineHeight: '1.6', padding: '6px 0',
-                      maxHeight: '160px', overflowY: 'auto',
-                    }}
-                  />
-
-                  {/* Send / Stop button — liquid metal */}
-                  <button
-                    onClick={streaming ? stopStreaming : sendMessage}
-                    disabled={!streaming && (!input.trim() || rateLimited)}
-                    style={{
-                      width: '38px', height: '38px', borderRadius: '50%', flexShrink: 0,
-                      border: 'none', cursor: (streaming || (input.trim() && !rateLimited)) ? 'pointer' : 'default',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'all 0.25s', alignSelf: 'flex-end',
-                      color: (input.trim() || streaming) ? '#1a1a1a' : 'rgba(255,255,255,0.2)',
-                    }}
-                    className={(input.trim() || streaming) && !rateLimited ? 'liquid-btn' : 'liquid-btn-inactive'}
-                  >
-                    {streaming ? <Icon.Stop /> : <Icon.Send />}
-                  </button>
+                <div id="composer">
+                  <div className="composer-top">
+                    <textarea
+                      id="msg-input"
+                      ref={textareaRef}
+                      rows={1}
+                      placeholder="Ask anything…"
+                      value={input}
+                      onChange={e => {
+                        setInput(e.target.value)
+                        e.target.style.height = 'auto'
+                        e.target.style.height = Math.min(e.target.scrollHeight, 180) + 'px'
+                      }}
+                      onKeyDown={handleKeyDown}
+                      aria-label="Message"
+                    />
+                  </div>
+                  <div className="composer-bottom">
+                    <div className="composer-left">
+                      <button className="pill-btn" title="Attach file">
+                        <AttachSvg /> Attach
+                      </button>
+                      <button className="pill-btn" ref={toolsBtnRef} onClick={toggleToolsDD} title="Tools">
+                        <ToolsSvg /> Tools
+                      </button>
+                    </div>
+                    <div className="composer-right">
+                      {streaming ? (
+                        <button className="stop-btn" onClick={stopStreaming}><StopSvg /></button>
+                      ) : (
+                        <button className="send-btn" onClick={() => sendMessage()} disabled={!input.trim() || rateLimited}>
+                          <ArrowUpSvg />
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
-
-              <p style={{ textAlign: 'center', marginTop: '7px', fontFamily: 'Roboto Mono, monospace', fontSize: '10px', color: 'rgba(255,255,255,0.13)', letterSpacing: '0.07em' }}>
-                {currentModel.label} · Enter to send · Shift+Enter for new line
-              </p>
             </div>
+            <div ref={bottomRef} />
           </div>
-        </div>
+        </main>
       </div>
 
-      {/* Hidden file input */}
-      <input ref={fileInputRef} type="file" accept="image/*,.pdf,.txt,.md,.csv" style={{ display: 'none' }}
-        onChange={e => { const f = e.target.files[0]; if (f) console.log('File selected:', f.name); e.target.value = '' }} />
+      {/* Tools portal */}
+      {showToolsDD && (
+        <div className="tools-portal" style={{ left: `${toolsDDPos.x}px`, top: `${toolsDDPos.y}px` }}>
+          {TOOL_OPTIONS.map(t => (
+            <div key={t.id} className="tool-dd-item" onClick={() => pickTool(t.label)}>{t.label}</div>
+          ))}
+        </div>
+      )}
 
+      {/* Settings */}
       {showSettings && (
-        <SettingsPanel settings={settings} onSave={handleSaveSettings} onClose={() => setShowSettings(false)} username={username} />
+        <SettingsPanel
+          settings={settings}
+          onSave={handleSaveSettings}
+          onClose={() => setShowSettings(false)}
+          username={username}
+        />
       )}
     </>
   )
